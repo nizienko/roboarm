@@ -1,3 +1,4 @@
 /backend/build/
 /.idea/
 /backend/.gradle/
+/backend/.kotlin/
