@@ -37,6 +37,7 @@ fun main() {
                         if (frame is Frame.Text) {
                             val receivedText = frame.readText()
                             val messageResponse = MessageResponse(receivedText)
+                            println(messageResponse)
                             messageResponseFlow.emit(messageResponse)
                         }
                     }
