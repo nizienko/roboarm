@@ -1,11 +1,13 @@
+import type {ArmState} from "./ArmState.ts";
+
 interface ArmCanvasProps {
-    message?: string
+    state?: ArmState
 }
 
-function ArmCanvas({message}: ArmCanvasProps) {
+function ArmCanvas({state}: ArmCanvasProps) {
     return (
         <section>
-            Data: {message}
+            Data: {state?.time}
         </section>
     )
 }

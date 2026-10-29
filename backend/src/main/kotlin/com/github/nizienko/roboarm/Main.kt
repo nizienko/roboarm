@@ -1,50 +1,53 @@
 package com.github.nizienko.roboarm
 
+import com.github.nizienko.roboarm.data.ArmCommand
+import io.ktor.serialization.WebsocketDeserializeException
+import io.ktor.serialization.kotlinx.KotlinxWebsocketSerializationConverter
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.WebSockets
+import io.ktor.server.websocket.receiveDeserialized
+import io.ktor.server.websocket.sendSerialized
 import io.ktor.server.websocket.webSocket
-import io.ktor.websocket.Frame
-import io.ktor.websocket.readText
-import io.ktor.websocket.send
-import kotlinx.coroutines.channels.consumeEach
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.channels.ClosedReceiveChannelException
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import kotlin.coroutines.cancellation.CancellationException
 
-data class MessageResponse(val text: String)
-private val messageResponseFlow = MutableSharedFlow<MessageResponse>()
-private val sharedFlow = messageResponseFlow.asSharedFlow()
 
 fun main() {
-    embeddedServer(Netty, port = 6593) {
-        install(WebSockets)
 
+    embeddedServer(Netty, port = 6593) {
+        install(WebSockets) {
+            contentConverter = KotlinxWebsocketSerializationConverter(Json)
+        }
+        val simulator = RoboArmService(this)
         routing {
             webSocket("/ws") {
-                send("You are connected to WebSocket!")
-
-                val job = launch {
-                    sharedFlow.collect { message ->
-                        send(message.text)
+                val sendJob = launch {
+                    simulator.armStateFlow.collect { message ->
+                        sendSerialized(message)
                     }
                 }
-
-                runCatching {
-                    incoming.consumeEach { frame ->
-                        if (frame is Frame.Text) {
-                            val receivedText = frame.readText()
-                            val messageResponse = MessageResponse(receivedText)
-                            println(messageResponse)
-                            messageResponseFlow.emit(messageResponse)
+                try {
+                    while (isActive) {
+                        val command: ArmCommand? = try {
+                            receiveDeserialized<ArmCommand>()
+                        } catch (c: CancellationException) {
+                            throw c
+                        } catch (_: ClosedReceiveChannelException) {
+                            break
+                        } catch (t: WebsocketDeserializeException) {
+                            println(t.message)
+                            null
                         }
+                        command?.let { simulator.reportCommand(it) }
                     }
-                }.onFailure { exception ->
-                    println("WebSocket exception: ${exception.localizedMessage}")
-                }.also {
-                    job.cancel()
+                } finally {
+                    sendJob.cancel()
                 }
             }
         }
