@@ -24,7 +24,7 @@ fun main() {
         install(WebSockets) {
             contentConverter = KotlinxWebsocketSerializationConverter(Json)
         }
-        val simulator = RoboArmService(this)
+        val simulator = RoboArmSimulator(this)
         routing {
             webSocket("/ws") {
                 val sendJob = launch {
