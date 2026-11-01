@@ -1,4 +1,4 @@
-import com.github.nizienko.roboarm.Point3D
+import com.github.nizienko.roboarm.data.Point3D
 import com.github.nizienko.roboarm.RotationDegrees3D
 import com.github.nizienko.roboarm.rotate
 import com.github.nizienko.roboarm.multiply

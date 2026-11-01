@@ -1,32 +1,38 @@
 package com.github.nizienko.roboarm
 
+import com.github.nizienko.roboarm.data.ArmPartToggle
 import com.github.nizienko.roboarm.data.ArmCommand
 import com.github.nizienko.roboarm.data.ArmState
+import com.github.nizienko.roboarm.data.Mesh
+import com.github.nizienko.roboarm.data.Point3D
 import com.github.nizienko.roboarm.parts.Cran
 import com.github.nizienko.roboarm.parts.Lift
 import com.github.nizienko.roboarm.parts.Mast
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
-import kotlin.time.Duration.Companion.milliseconds
-
 
 
 class RoboArmSimulator(private val coroutineScope: CoroutineScope) {
 
-    private val _armStateFlow = MutableStateFlow(ArmState())
-    val armStateFlow: SharedFlow<ArmState> = _armStateFlow.asSharedFlow()
+    private val cran = Cran()
+    private val lift = Lift(cran)
+    private val mast = Mast(lift)
 
-    val robot = Mast(Lift(Cran()))
+    private fun calcState(): ArmState = ArmState(parts = mast.toArmParts())
+
+    private val _armStateFlow = MutableStateFlow(calcState())
+    val armStateFlow: StateFlow<ArmState> = _armStateFlow.asStateFlow()
 
     init {
         coroutineScope.launch {
-            while (true) {
-                _armStateFlow.value = ArmState()
-                delay(1000.milliseconds)
+            combine(lift.height, mast.angleDegrees) { _, _ ->
+                calcState()
+            }.collect {
+                _armStateFlow.emit(it)
             }
         }
     }
@@ -36,11 +42,13 @@ class RoboArmSimulator(private val coroutineScope: CoroutineScope) {
     }
 }
 
-data class Point3D(val x: Double, val y: Double, val z: Double)
 data class RotationDegrees3D(val x: Double, val y: Double, val z: Double)
+
 interface RoboPart {
     val localPosition: Point3D
     val localRotation: RotationDegrees3D
+    val localMesh: Mesh
+    val toggles: List<ArmPartToggle>
+        get() = emptyList()
     val nextPart: RoboPart?
 }
-

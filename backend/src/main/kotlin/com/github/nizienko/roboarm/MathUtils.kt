@@ -1,5 +1,6 @@
 package com.github.nizienko.roboarm
 
+import com.github.nizienko.roboarm.data.Point3D
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -56,11 +57,17 @@ fun RotationDegrees3D.toMatrix(): Array<DoubleArray> {
 }
 
 fun Point3D.rotate(rotation: RotationDegrees3D): Point3D {
+    return rotate(rotation.toMatrix())
+}
+
+fun Point3D.rotate(rotation: Array<DoubleArray>): Point3D {
     val column = arrayOf(
         doubleArrayOf(x),
         doubleArrayOf(y),
         doubleArrayOf(z),
     )
-    val rotated = multiply(rotation.toMatrix(), column)
+    val rotated = multiply(rotation, column)
     return Point3D(rotated[0][0], rotated[1][0], rotated[2][0])
 }
+
+operator fun Point3D.plus(other: Point3D): Point3D = Point3D(x + other.x, y + other.y, z + other.z)
