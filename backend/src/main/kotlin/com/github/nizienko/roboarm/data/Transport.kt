@@ -35,4 +35,4 @@ data class ArmState(
 )
 
 @Serializable
-data class ArmCommand(val text: String)
+data class ArmCommand(val partIndex: Int, val toggleName: String, val value: Double)

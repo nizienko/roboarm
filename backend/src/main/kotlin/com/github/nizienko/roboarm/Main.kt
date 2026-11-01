@@ -22,12 +22,15 @@ fun main() {
 
     embeddedServer(Netty, port = 6593) {
         install(WebSockets) {
-            contentConverter = KotlinxWebsocketSerializationConverter(Json)
+            contentConverter = KotlinxWebsocketSerializationConverter(Json {
+                encodeDefaults = true
+            })
         }
         val simulator = RoboArmSimulator(this)
         routing {
             webSocket("/ws") {
                 val sendJob = launch {
+                    sendSerialized(simulator.armStateFlow.value)
                     simulator.armStateFlow.collect { message ->
                         sendSerialized(message)
                     }

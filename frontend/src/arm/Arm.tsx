@@ -1,70 +1,67 @@
-import {useEffect, useState} from "react";
+import { useEffect, useRef, useState } from "react";
 import ArmCanvas from "./ArmCanvas.tsx";
-import type {ArmState} from "./ArmState.ts";
-
+import { ArmControls } from "./ArmControls.tsx";
+import { isArmState } from "./ArmState.ts";
+import type { ArmCommand, ArmState } from "./ArmState.ts";
 
 function Arm() {
-    const [connectionState, setConnectionState] = useState<string>("no connection")
-    const [armState, setArmState] = useState<ArmState>()
+    const [connectionState, setConnectionState] = useState("Подключение…");
+    const [armState, setArmState] = useState<ArmState>();
+    const socketRef = useRef<WebSocket | null>(null);
+    const connected = connectionState === "Подключено";
 
     useEffect(() => {
-        const websocket = new WebSocket("ws://localhost:6593/ws")
+        const websocket = new WebSocket("ws://localhost:6593/ws");
+        socketRef.current = websocket;
 
-        const onOpen = (event: Event) => {
-            console.log("open event" + event)
-            setConnectionState("Connected")
-        }
-        const onClose = (event: CloseEvent) => {
-            console.log("open event" + event)
-            setConnectionState("Disconnected")
-        }
+        const onOpen = () => setConnectionState("Подключено");
+        const onClose = () => setConnectionState("Соединение закрыто");
+        const onError = () => setConnectionState("Ошибка соединения");
         const onMessage = (event: MessageEvent<string>) => {
             try {
-                const state: unknown = JSON.parse(event.data)
-                if (typeof state === "object"
-                    && state !== null
-                    && !Array.isArray(state)
-                    && "time" in state
-                    && typeof state.time === "number"
-                    && Number.isSafeInteger(state.time)
-                ) {
-                    setArmState(state as ArmState)
+                const state: unknown = JSON.parse(event.data);
+                if (isArmState(state)) {
+                    setArmState(state);
                 } else {
-                    console.warn("Wrong state: " + state)
+                    console.warn("Некорректное состояние руки", state);
                 }
-            } catch (e) {
-                console.error(e)
+            } catch (error) {
+                console.error(error);
             }
-        }
+        };
 
-        const onError =  (event: Event) => {
-            setConnectionState("Error: ," + event)
-        }
-        websocket.addEventListener("open", onOpen)
-        websocket.addEventListener("close", onClose)
-        websocket.addEventListener("message", onMessage)
-        websocket.addEventListener("error", onError)
+        websocket.addEventListener("open", onOpen);
+        websocket.addEventListener("close", onClose);
+        websocket.addEventListener("message", onMessage);
+        websocket.addEventListener("error", onError);
         return () => {
-            websocket.removeEventListener("open", onOpen)
-            websocket.removeEventListener("close", onClose)
-            websocket.removeEventListener("message", onMessage)
-            websocket.removeEventListener("error", onError)
-            websocket.close()
+            socketRef.current = null;
+            websocket.removeEventListener("open", onOpen);
+            websocket.removeEventListener("close", onClose);
+            websocket.removeEventListener("message", onMessage);
+            websocket.removeEventListener("error", onError);
+            websocket.close();
+        };
+    }, []);
+
+    function sendCommand(command: ArmCommand) {
+        const websocket = socketRef.current;
+        if (websocket?.readyState !== WebSocket.OPEN) return;
+        try {
+            websocket.send(JSON.stringify(command));
+        } catch (error) {
+            setConnectionState("Ошибка отправки команды");
+            console.error(error);
         }
-    }, [])
-    if (connectionState === "Connected") {
-        return (
-            <section>
-                <ArmCanvas state = {armState}/>
-            </section>
-        )
     }
 
     return (
         <section>
-            <h2> {connectionState} </h2>
+            <p role="status">{connectionState}</p>
+            <ArmControls state={armState} disabled={!connected} onCommand={sendCommand} />
+            <ArmCanvas state={armState} />
         </section>
-    )
+    );
 }
 
 export default Arm;

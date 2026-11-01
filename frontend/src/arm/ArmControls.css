@@ -1,0 +1,46 @@
+.arm-controls {
+    margin: 20px;
+    padding: 20px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    text-align: left;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+    gap: 24px;
+}
+
+.arm-controls legend {
+    color: var(--text-h);
+    padding: 0 8px;
+}
+
+.arm-control label,
+.arm-control-limits {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.arm-control output {
+    font-variant-numeric: tabular-nums;
+    color: var(--text-h);
+}
+
+.arm-control input {
+    width: 100%;
+    margin: 12px 0;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+.arm-controls:disabled {
+    opacity: 0.5;
+}
+
+.arm-controls:disabled input {
+    cursor: not-allowed;
+}
+
+.arm-control-limits {
+    font-size: 0.8rem;
+}

@@ -38,7 +38,17 @@ class RoboArmSimulator(private val coroutineScope: CoroutineScope) {
     }
 
     fun reportCommand(command: ArmCommand) {
-        println(command)
+        val part = generateSequence<RoboPart>(mast) { it.nextPart }
+            .toList().getOrNull(command.partIndex) ?: return
+        val toggle = part.toggles.find { it.name == command.toggleName } ?: return
+        if (!command.value.isFinite() || command.value !in toggle.minValue..toggle.maxValue) return
+
+        when (part) {
+            is Mast -> part.moveToAngle(command.value)
+            is Lift -> part.setHeight(command.value)
+            else -> return
+        }
+        _armStateFlow.value = calcState()
     }
 }
 
