@@ -17,6 +17,7 @@ internal fun RoboPart.toArmParts(): List<ArmPart> = buildList {
 
         val mesh = current.localMesh
         add(ArmPart(
+            id = current.id,
             toggles = current.toggles,
             mesh = Mesh(
                 startPoint = worldPosition + mesh.startPoint.rotate(worldRotation),

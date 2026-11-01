@@ -24,6 +24,7 @@ data class Point3D(val x: Double, val y: Double, val z: Double)
 
 @Serializable
 data class ArmPart(
+    val id: String,
     val toggles: List<ArmPartToggle>,
     val mesh: Mesh
 )
@@ -35,4 +36,4 @@ data class ArmState(
 )
 
 @Serializable
-data class ArmCommand(val partIndex: Int, val toggleName: String, val value: Double)
+data class ArmCommand(val partId: String, val toggleName: String, val value: Double)

@@ -5,6 +5,7 @@ export interface Point3D {
 }
 
 export interface ArmPart {
+    id: string;
     mesh: {
         startPoint: Point3D;
         endPoint: Point3D;
@@ -23,7 +24,7 @@ export interface ArmState {
 }
 
 export interface ArmCommand {
-    partIndex: number;
+    partId: string;
     toggleName: string;
     value: number;
 }
@@ -45,6 +46,7 @@ export function isArmState(value: unknown): value is ArmState {
         && typeof value.time === "number" && Number.isSafeInteger(value.time)
         && Array.isArray(value.parts)
         && value.parts.every((part: unknown) => isRecord(part)
+            && typeof part.id === "string"
             && isRecord(part.mesh)
             && isPoint(part.mesh.startPoint) && isPoint(part.mesh.endPoint)
             && Array.isArray(part.toggles)

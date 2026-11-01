@@ -10,8 +10,8 @@ interface ArmControlsProps {
 export function ArmControls({ state, disabled, onCommand }: ArmControlsProps) {
     return (
         <fieldset className="arm-controls" disabled={disabled || !state}>
-            {state?.parts.map((part, partIndex) => part.toggles.map((toggle) => {
-                const id = `arm-control-${partIndex}-${toggle.name}`;
+            {state?.parts.map((part) => part.toggles.map((toggle) => {
+                const id = `arm-control-${part.id}-${toggle.name}`;
 
                 return (
                     <div className="arm-control" key={id}>
@@ -27,7 +27,7 @@ export function ArmControls({ state, disabled, onCommand }: ArmControlsProps) {
                             step="any"
                             value={toggle.value}
                             onChange={(event) => onCommand({
-                                partIndex,
+                                partId: part.id,
                                 toggleName: toggle.name,
                                 value: event.currentTarget.valueAsNumber,
                             })}

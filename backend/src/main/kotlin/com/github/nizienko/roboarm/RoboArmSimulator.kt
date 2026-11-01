@@ -6,6 +6,7 @@ import com.github.nizienko.roboarm.data.ArmState
 import com.github.nizienko.roboarm.data.Mesh
 import com.github.nizienko.roboarm.data.Point3D
 import com.github.nizienko.roboarm.parts.Cran
+import com.github.nizienko.roboarm.parts.Gripper
 import com.github.nizienko.roboarm.parts.Lift
 import com.github.nizienko.roboarm.parts.Mast
 import kotlinx.coroutines.CoroutineScope
@@ -18,9 +19,12 @@ import kotlinx.coroutines.launch
 
 class RoboArmSimulator(private val coroutineScope: CoroutineScope) {
 
-    private val cran = Cran()
+    private val gripper = Gripper()
+    private val cran = Cran(gripper)
     private val lift = Lift(cran)
     private val mast = Mast(lift)
+
+    private val partsById = generateSequence<RoboPart>(mast) { it.nextPart }.associateBy { it.id }
 
     private fun calcState(): ArmState = ArmState(parts = mast.toArmParts())
 
@@ -29,7 +33,13 @@ class RoboArmSimulator(private val coroutineScope: CoroutineScope) {
 
     init {
         coroutineScope.launch {
-            combine(lift.height, mast.angleDegrees) { _, _ ->
+            combine(
+                lift.height,
+                mast.angleDegrees,
+                cran.angleDegrees,
+                gripper.angleDegrees,
+                gripper.gripExpand,
+            ) { _, _, _, _, _ ->
                 calcState()
             }.collect {
                 _armStateFlow.emit(it)
@@ -38,16 +48,11 @@ class RoboArmSimulator(private val coroutineScope: CoroutineScope) {
     }
 
     fun reportCommand(command: ArmCommand) {
-        val part = generateSequence<RoboPart>(mast) { it.nextPart }
-            .toList().getOrNull(command.partIndex) ?: return
+        val part = partsById[command.partId] ?: return
         val toggle = part.toggles.find { it.name == command.toggleName } ?: return
         if (!command.value.isFinite() || command.value !in toggle.minValue..toggle.maxValue) return
 
-        when (part) {
-            is Mast -> part.moveToAngle(command.value)
-            is Lift -> part.setHeight(command.value)
-            else -> return
-        }
+        part.applyCommand(command)
         _armStateFlow.value = calcState()
     }
 }
@@ -55,6 +60,9 @@ class RoboArmSimulator(private val coroutineScope: CoroutineScope) {
 data class RotationDegrees3D(val x: Double, val y: Double, val z: Double)
 
 interface RoboPart {
+    val id: String
+    fun applyCommand(command: ArmCommand)
+
     val localPosition: Point3D
     val localRotation: RotationDegrees3D
     val localMesh: Mesh

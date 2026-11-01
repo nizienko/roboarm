@@ -5,25 +5,25 @@ import { isArmState } from "./ArmState.ts";
 import type { ArmCommand, ArmState } from "./ArmState.ts";
 
 function Arm() {
-    const [connectionState, setConnectionState] = useState("Подключение…");
+    const [connectionState, setConnectionState] = useState("Connecting");
     const [armState, setArmState] = useState<ArmState>();
     const socketRef = useRef<WebSocket | null>(null);
-    const connected = connectionState === "Подключено";
+    const connected = connectionState === "Connected";
 
     useEffect(() => {
         const websocket = new WebSocket("ws://localhost:6593/ws");
         socketRef.current = websocket;
 
-        const onOpen = () => setConnectionState("Подключено");
-        const onClose = () => setConnectionState("Соединение закрыто");
-        const onError = () => setConnectionState("Ошибка соединения");
+        const onOpen = () => setConnectionState("Connected");
+        const onClose = () => setConnectionState("Connection closed");
+        const onError = () => setConnectionState("Error");
         const onMessage = (event: MessageEvent<string>) => {
             try {
                 const state: unknown = JSON.parse(event.data);
                 if (isArmState(state)) {
                     setArmState(state);
                 } else {
-                    console.warn("Некорректное состояние руки", state);
+                    console.warn("Wrong state", state);
                 }
             } catch (error) {
                 console.error(error);
@@ -58,8 +58,8 @@ function Arm() {
     return (
         <section>
             <p role="status">{connectionState}</p>
-            <ArmControls state={armState} disabled={!connected} onCommand={sendCommand} />
             <ArmCanvas state={armState} />
+            <ArmControls state={armState} disabled={!connected} onCommand={sendCommand} />
         </section>
     );
 }

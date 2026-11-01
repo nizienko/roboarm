@@ -14,44 +14,65 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import java.util.UUID
 
 class RoboArmSimulatorTest {
     @Test
     fun commandsUpdateGeometryAndControlValues() = withSimulator { simulator ->
-        simulator.reportCommand(ArmCommand(0, "Rotation", 90.0))
-        simulator.reportCommand(ArmCommand(1, "Height", 20.0))
+        val parts = simulator.armStateFlow.value.parts
+        simulator.reportCommand(ArmCommand(parts[0].id, "Mast Rotation", 90.0))
+        simulator.reportCommand(ArmCommand(parts[1].id, "Height", 20.0))
+        simulator.reportCommand(ArmCommand(parts[2].id, "Cran Rotation", -15.0))
 
         val state = simulator.armStateFlow.value
         assertEquals(90.0, state.parts[0].toggles.single().value)
         assertEquals(20.0, state.parts[1].toggles.single().value)
-        assertPoint(Point3D(0.0, 10.0, 20.0), state.parts[2].mesh.endPoint)
+        assertEquals(-15.0, state.parts[2].toggles.single().value)
+        assertEquals(parts.map { it.id }, state.parts.map { it.id })
+        assertPoint(Point3D(0.0, 19.0, 19.0), state.parts[2].mesh.endPoint)
     }
 
     @Test
     fun invalidCommandsDoNotChangeState() = withSimulator { simulator ->
         val initial = simulator.armStateFlow.value
+        val parts = initial.parts
         listOf(
-            ArmCommand(-1, "Rotation", 45.0),
-            ArmCommand(99, "Height", 10.0),
-            ArmCommand(0, "Height", 10.0),
-            ArmCommand(2, "Rotation", 45.0),
-            ArmCommand(0, "Rotation", -1.0),
-            ArmCommand(0, "Rotation", 181.0),
-            ArmCommand(1, "Height", 31.0),
-            ArmCommand(1, "Height", Double.NaN),
-            ArmCommand(1, "Height", Double.POSITIVE_INFINITY),
+            ArmCommand("unknown-part", "Mast Rotation", 45.0),
+            ArmCommand("", "Height", 10.0),
+            ArmCommand(parts[0].id, "Height", 10.0),
+            ArmCommand(parts[2].id, "Mast Rotation", 10.0),
+            ArmCommand(parts[0].id, "Mast Rotation", -1.0),
+            ArmCommand(parts[0].id, "Mast Rotation", 361.0),
+            ArmCommand(parts[2].id, "Cran Rotation", -31.0),
+            ArmCommand(parts[2].id, "Cran Rotation", 31.0),
+            ArmCommand(parts[1].id, "Height", 31.0),
+            ArmCommand(parts[1].id, "Height", Double.NaN),
+            ArmCommand(parts[1].id, "Height", Double.POSITIVE_INFINITY),
         ).forEach(simulator::reportCommand)
         assertEquals(initial.parts, simulator.armStateFlow.value.parts)
     }
 
     @Test
     fun commandsAcceptRangeBoundaries() = withSimulator { simulator ->
-        simulator.reportCommand(ArmCommand(0, "Rotation", 180.0))
-        simulator.reportCommand(ArmCommand(1, "Height", 30.0))
-        assertPoint(Point3D(-10.0, 0.0, 30.0), simulator.armStateFlow.value.parts[2].mesh.endPoint)
-        simulator.reportCommand(ArmCommand(0, "Rotation", 0.0))
-        simulator.reportCommand(ArmCommand(1, "Height", 0.0))
-        assertPoint(Point3D(10.0, 0.0, 0.0), simulator.armStateFlow.value.parts[2].mesh.endPoint)
+        val parts = simulator.armStateFlow.value.parts
+        for (part in parts) {
+            val toggle = part.toggles.single()
+            for (value in listOf(toggle.maxValue, toggle.minValue)) {
+                simulator.reportCommand(ArmCommand(part.id, toggle.name, value))
+                val updated = simulator.armStateFlow.value.parts.single { it.id == part.id }
+                assertEquals(value, updated.toggles.single().value)
+            }
+        }
+    }
+
+    @Test
+    fun partIdsAreUniqueEvenForPartsOfTheSameType() {
+        val tip = Cran()
+        val root = Cran(tip)
+        val parts = root.toArmParts()
+        assertEquals(2, parts.map { it.id }.toSet().size)
+        assertEquals(listOf(root.id, tip.id), parts.map { it.id })
+        assertEquals(parts, root.toArmParts())
     }
 
     @Test
@@ -60,29 +81,26 @@ class RoboArmSimulatorTest {
         assertEquals(3, state.parts.size)
         assertPoint(Point3D(0.0, 0.0, 0.0), state.parts[0].mesh.startPoint)
         assertPoint(Point3D(0.0, 0.0, 30.0), state.parts[0].mesh.endPoint)
-        assertPoint(Point3D(0.0, 0.0, 5.0), state.parts[1].mesh.endPoint)
-        assertPoint(Point3D(10.0, 0.0, 5.0), state.parts[2].mesh.endPoint)
-        assertConnected(state)
+        assertPoint(Point3D(11.0, 0.0, 5.0), state.parts[1].mesh.endPoint)
+        assertPoint(Point3D(19.0, 0.0, 4.0), state.parts[2].mesh.endPoint)
     }
 
     @Test
     fun mastRotationRotatesCranAroundVerticalAxis() {
         val state = stateAt(height = 5.0, angleDegrees = 90.0)
         assertPoint(Point3D(0.0, 0.0, 30.0), state.parts[0].mesh.endPoint)
-        assertPoint(Point3D(0.0, 0.0, 5.0), state.parts[2].mesh.startPoint)
-        assertPoint(Point3D(0.0, 10.0, 5.0), state.parts[2].mesh.endPoint)
+        assertPoint(Point3D(0.0, 9.0, 4.0), state.parts[2].mesh.startPoint)
+        assertPoint(Point3D(0.0, 19.0, 4.0), state.parts[2].mesh.endPoint)
         assertEquals(90.0, state.parts[0].toggles.single().value)
-        assertConnected(state)
     }
 
     @Test
     fun liftHeightMovesEntireCranWithoutChangingMast() {
         val state = stateAt(height = 20.0, angleDegrees = 180.0)
         assertPoint(Point3D(0.0, 0.0, 30.0), state.parts[0].mesh.endPoint)
-        assertPoint(Point3D(0.0, 0.0, 20.0), state.parts[1].mesh.endPoint)
-        assertPoint(Point3D(-10.0, 0.0, 20.0), state.parts[2].mesh.endPoint)
+        assertPoint(Point3D(-11.0, 0.0, 20.0), state.parts[1].mesh.endPoint)
+        assertPoint(Point3D(-19.0, 0.0, 19.0), state.parts[2].mesh.endPoint)
         assertEquals(20.0, state.parts[1].toggles.single().value)
-        assertConnected(state)
     }
 
     @Test
@@ -114,6 +132,8 @@ class RoboArmSimulatorTest {
         override val localRotation: RotationDegrees3D,
         override val nextPart: RoboPart? = null,
     ) : RoboPart {
+        override val id: String = UUID.randomUUID().toString()
+        override fun applyCommand(command: ArmCommand) = Unit
         override val localMesh = Mesh(Point3D(0.0, 0.0, 0.0), Point3D(0.0, 0.0, 1.0))
     }
 
@@ -121,11 +141,6 @@ class RoboArmSimulatorTest {
         val lift = Lift(Cran()).apply { setHeight(height) }
         val mast = Mast(lift).apply { moveToAngle(angleDegrees) }
         return ArmState(parts = mast.toArmParts())
-    }
-
-    private fun assertConnected(state: ArmState) {
-        assertPoint(state.parts[0].mesh.startPoint, state.parts[1].mesh.startPoint)
-        assertPoint(state.parts[1].mesh.endPoint, state.parts[2].mesh.startPoint)
     }
 
     private fun assertPoint(expected: Point3D, actual: Point3D) {
