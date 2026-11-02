@@ -2,7 +2,6 @@ package com.github.nizienko.roboarm.data
 
 import kotlinx.serialization.Serializable
 
-
 @Serializable
 data class ArmPartToggle(
     val name: String,
@@ -10,30 +9,26 @@ data class ArmPartToggle(
     val minValue: Double = 0.0,
     val maxValue: Double = 180.0,
     val targetValue: Double = value,
-)
-
-@Serializable
-data class Mesh(
-    val startPoint: Point3D,
-    val endPoint: Point3D
+    val unit: String,
 )
 
 @Serializable
 data class Point3D(val x: Double, val y: Double, val z: Double)
 
-
-
+/** Absolute position in Y-up scene meters; angle around backend Z (scene Y), in degrees. */
 @Serializable
 data class ArmPart(
     val id: String,
+    val modelNode: String,
+    val position: Point3D,
+    val rotationDegreesZ: Double,
     val toggles: List<ArmPartToggle>,
-    val mesh: Mesh
 )
 
 @Serializable
 data class ArmState(
     val time: Long = System.currentTimeMillis(),
-    val parts: List<ArmPart>
+    val parts: List<ArmPart>,
 )
 
 @Serializable

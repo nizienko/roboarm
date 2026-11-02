@@ -3,6 +3,7 @@ import ArmCanvas from "./ArmCanvas.tsx";
 import { ArmControls } from "./ArmControls.tsx";
 import { isArmState } from "./ArmState.ts";
 import type { ArmCommand, ArmState } from "./ArmState.ts";
+import "./Arm.css";
 
 function Arm() {
     const [connectionState, setConnectionState] = useState("Connecting");
@@ -50,7 +51,7 @@ function Arm() {
         try {
             websocket.send(JSON.stringify(command));
         } catch (error) {
-            setConnectionState("Ошибка отправки команды");
+            setConnectionState("Failed to send command");
             console.error(error);
         }
     }
@@ -58,8 +59,10 @@ function Arm() {
     return (
         <section>
             <p role="status">{connectionState}</p>
-            <ArmCanvas state={armState} />
-            <ArmControls state={armState} disabled={!connected} onCommand={sendCommand} />
+            <div className="arm-layout">
+                <ArmControls state={armState} disabled={!connected} onCommand={sendCommand} />
+                <ArmCanvas state={armState} />
+            </div>
         </section>
     );
 }

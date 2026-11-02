@@ -1,0 +1,19 @@
+.arm-layout {
+    display: grid;
+    grid-template-columns: 300px minmax(0, 1fr);
+    align-items: start;
+    gap: 20px;
+    padding: 20px;
+}
+
+.arm-layout > .arm-controls {
+    min-width: 0;
+    margin: 0;
+    grid-template-columns: minmax(0, 1fr);
+}
+
+@media (max-width: 640px) {
+    .arm-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

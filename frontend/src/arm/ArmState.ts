@@ -6,16 +6,16 @@ export interface Point3D {
 
 export interface ArmPart {
     id: string;
-    mesh: {
-        startPoint: Point3D;
-        endPoint: Point3D;
-    };
+    modelNode: string;
+    position: Point3D;
+    rotationDegreesZ: number;
     toggles: {
         name: string;
         value: number;
         targetValue: number;
         minValue: number;
         maxValue: number;
+        unit: 'degrees' | 'meters';
     }[];
 }
 
@@ -31,11 +31,11 @@ export interface ArmCommand {
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function isFiniteNumber(value: unknown): value is number {
-    return typeof value === "number" && Number.isFinite(value);
+    return typeof value === 'number' && Number.isFinite(value);
 }
 
 function isPoint(value: unknown): value is Point3D {
@@ -44,15 +44,16 @@ function isPoint(value: unknown): value is Point3D {
 
 export function isArmState(value: unknown): value is ArmState {
     return isRecord(value)
-        && typeof value.time === "number" && Number.isSafeInteger(value.time)
+        && typeof value.time === 'number' && Number.isSafeInteger(value.time)
         && Array.isArray(value.parts)
         && value.parts.every((part: unknown) => isRecord(part)
-            && typeof part.id === "string"
-            && isRecord(part.mesh)
-            && isPoint(part.mesh.startPoint) && isPoint(part.mesh.endPoint)
+            && typeof part.id === 'string'
+            && typeof part.modelNode === 'string' && part.modelNode.length > 0
+            && isPoint(part.position) && isFiniteNumber(part.rotationDegreesZ)
             && Array.isArray(part.toggles)
             && part.toggles.every((toggle: unknown) => isRecord(toggle)
-                && typeof toggle.name === "string"
+                && typeof toggle.name === 'string'
+                && (toggle.unit === 'degrees' || toggle.unit === 'meters')
                 && isFiniteNumber(toggle.value)
                 && isFiniteNumber(toggle.targetValue)
                 && isFiniteNumber(toggle.minValue)

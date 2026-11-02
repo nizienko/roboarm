@@ -1,10 +1,8 @@
 package com.github.nizienko.roboarm.parts
 
 import com.github.nizienko.roboarm.RoboPart
-import com.github.nizienko.roboarm.RotationDegrees3D
 import com.github.nizienko.roboarm.data.ArmCommand
 import com.github.nizienko.roboarm.data.ArmPartToggle
-import com.github.nizienko.roboarm.data.Mesh
 import com.github.nizienko.roboarm.data.Point3D
 import kotlinx.coroutines.CoroutineScope
 import java.util.UUID
@@ -25,8 +23,8 @@ class Mast(scope: CoroutineScope, override val nextPart: RoboPart? = null): Robo
     private val moveEngine: MoveEngine = MoveEngine(
         scope, _angle,
         MoveEngineParameters(
-            maxSpeed = 15.0,
-            maxAcceleration = 10.0,
+            maxSpeed = 45.0,
+            maxAcceleration = 25.0,
             minValue = 0.0,
             maxValue = 360.0
         ),
@@ -37,11 +35,19 @@ class Mast(scope: CoroutineScope, override val nextPart: RoboPart? = null): Robo
         moveEngine.moveTo(degrees)
     }
 
-    override val localMesh = Mesh(Point3D(0.0, 0.0, 0.0), Point3D(0.0, 0.0, 30.0))
+    override val modelNode: String = "Mast"
     override val toggles: List<ArmPartToggle>
-        get() = listOf(ArmPartToggle("Mast Rotation", _angle.value, maxValue = 360.0, targetValue = moveEngine.target.value))
+        get() = listOf(
+            ArmPartToggle(
+                "Mast Rotation",
+                _angle.value,
+                maxValue = 360.0,
+                targetValue = moveEngine.target.value,
+                unit = "degrees",
+            ),
+        )
 
-    override val localPosition: Point3D = Point3D(0.0, 0.0, 0.0)
-    override val localRotation: RotationDegrees3D
-        get() = RotationDegrees3D(0.0, 0.0, _angle.value)
+    override val localPosition: Point3D = Point3D(0.0, 0.0, 0.2)
+    override val localRotationDegreesZ: Double
+        get() = _angle.value
 }

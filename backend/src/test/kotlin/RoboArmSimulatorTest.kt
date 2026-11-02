@@ -1,67 +1,70 @@
 import com.github.nizienko.roboarm.RoboArmSimulator
-import com.github.nizienko.roboarm.RoboPart
-import com.github.nizienko.roboarm.RotationDegrees3D
 import com.github.nizienko.roboarm.toArmParts
-import com.github.nizienko.roboarm.data.Mesh
-import com.github.nizienko.roboarm.parts.Mast
-import com.github.nizienko.roboarm.parts.Lift
 import com.github.nizienko.roboarm.parts.Cran
+import com.github.nizienko.roboarm.data.Point3D
 import com.github.nizienko.roboarm.data.ArmState
 import com.github.nizienko.roboarm.data.ArmCommand
-import com.github.nizienko.roboarm.data.Point3D
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.flow.first
-import kotlin.math.sin
-import kotlin.math.cos
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
-import java.util.UUID
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 class RoboArmSimulatorTest {
     @Test
-    fun commandsUpdateGeometryAndControlValues() = withSimulator { simulator ->
+    fun commandsUpdateActualAndTargetJointValues() = withSimulator { simulator ->
         val parts = simulator.armStateFlow.value.parts
-        simulator.reportCommand(ArmCommand(parts[0].id, "Mast Rotation", 90.0))
-        simulator.reportCommand(ArmCommand(parts[1].id, "Height", 20.0))
-        simulator.reportCommand(ArmCommand(parts[2].id, "Cran Rotation", -15.0))
+        simulator.reportCommand(ArmCommand(parts.single { it.modelNode == "Mast" }.id, "Mast Rotation", 90.0))
+        simulator.reportCommand(ArmCommand(parts.single { it.modelNode == "Lift" }.id, "Height", 1.0))
+        simulator.reportCommand(ArmCommand(parts.single { it.modelNode == "Cran" }.id, "Cran Rotation", -15.0))
 
         val state = withTimeout(20_000) {
             simulator.armStateFlow.first {
-                it.parts.take(3).flatMap { part -> part.toggles }.all { toggle -> toggle.value == toggle.targetValue }
+                it.parts.flatMap { part -> part.toggles }.all { toggle -> toggle.value == toggle.targetValue }
             }
         }
-        assertEquals(90.0, state.parts[0].toggles.single().value)
-        assertEquals(20.0, state.parts[1].toggles.single().value)
-        assertEquals(-15.0, state.parts[2].toggles.single().value)
+        assertEquals(90.0, state.parts.single { it.modelNode == "Mast" }.toggles.single().value)
+        assertEquals(1.0, state.parts.single { it.modelNode == "Lift" }.toggles.single().value)
+        assertEquals(-15.0, state.parts.single { it.modelNode == "Cran" }.toggles.single().value)
         assertEquals(parts.map { it.id }, state.parts.map { it.id })
-        assertPoint(Point3D(10.5 * sin(Math.toRadians(15.0)), 11.0 + 10.5 * cos(Math.toRadians(15.0)), 19.0), state.parts[2].mesh.endPoint)
     }
 
     @Test
-    fun gripperRotationAndExpansionMoveIndependently() = withSimulator { simulator ->
-        val gripper = simulator.armStateFlow.value.parts.last()
+    fun gripperRotationAndHandExpansionMoveIndependently() = withSimulator { simulator ->
+        val parts = simulator.armStateFlow.value.parts
+        val gripper = parts.single { it.modelNode == "Gripper" }
+        val hand = parts.single { it.modelNode == "Hand" }
+        assertEquals("Gripper Rotation", gripper.toggles.single().name)
+        assertEquals("Hand Expand", hand.toggles.single().name)
         simulator.reportCommand(ArmCommand(gripper.id, "Gripper Rotation", 3.0))
-        simulator.reportCommand(ArmCommand(gripper.id, "Gripper Expand", 4.5))
+        simulator.reportCommand(ArmCommand(hand.id, "Hand Expand", 0.1))
 
-        val commanded = simulator.armStateFlow.value.parts.last().toggles
-        assertEquals(3.0, commanded[0].targetValue)
-        assertEquals(4.5, commanded[1].targetValue)
-        assertNotEquals(3.0, commanded[0].value)
-        assertNotEquals(4.5, commanded[1].value)
+        val commanded = simulator.armStateFlow.value.parts
+        val rotation = commanded.single { it.modelNode == "Gripper" }.toggles.single()
+        val opening = commanded.single { it.modelNode == "Hand" }.toggles.single()
+        assertEquals(3.0, rotation.targetValue)
+        assertEquals(0.1, opening.targetValue)
+        assertNotEquals(3.0, rotation.value)
+        assertNotEquals(0.1, opening.value)
 
         val state = withTimeout(5_000) {
             simulator.armStateFlow.first {
-                it.parts.last().toggles.all { toggle -> toggle.value == toggle.targetValue }
+                it.parts.filter { part -> part.modelNode in listOf("Gripper", "Hand") }
+                    .flatMap { part -> part.toggles }.all { toggle -> toggle.value == toggle.targetValue }
             }
         }
-        assertEquals(listOf(3.0, 4.5), state.parts.last().toggles.map { it.value })
-        assertEquals(0.0, state.parts[0].toggles.single().value)
-        assertEquals(0.0, state.parts[2].toggles.single().value)
+        assertEquals(3.0, state.parts.single { it.modelNode == "Gripper" }.toggles.single().value)
+        assertEquals(0.1, state.parts.single { it.modelNode == "Hand" }.toggles.single().value)
+        assertEquals(0.0, state.parts.single { it.modelNode == "Mast" }.toggles.single().value)
+        assertEquals(0.0, state.parts.single { it.modelNode == "Cran" }.toggles.single().value)
     }
 
     @Test
@@ -71,15 +74,15 @@ class RoboArmSimulatorTest {
         listOf(
             ArmCommand("unknown-part", "Mast Rotation", 45.0),
             ArmCommand("", "Height", 10.0),
-            ArmCommand(parts[0].id, "Height", 10.0),
-            ArmCommand(parts[2].id, "Mast Rotation", 10.0),
-            ArmCommand(parts[0].id, "Mast Rotation", -1.0),
-            ArmCommand(parts[0].id, "Mast Rotation", 361.0),
-            ArmCommand(parts[2].id, "Cran Rotation", -121.0),
-            ArmCommand(parts[2].id, "Cran Rotation", 121.0),
-            ArmCommand(parts[1].id, "Height", 31.0),
-            ArmCommand(parts[1].id, "Height", Double.NaN),
-            ArmCommand(parts[1].id, "Height", Double.POSITIVE_INFINITY),
+            ArmCommand(parts.single { it.modelNode == "Mast" }.id, "Height", 10.0),
+            ArmCommand(parts.single { it.modelNode == "Cran" }.id, "Mast Rotation", 10.0),
+            ArmCommand(parts.single { it.modelNode == "Mast" }.id, "Mast Rotation", -1.0),
+            ArmCommand(parts.single { it.modelNode == "Mast" }.id, "Mast Rotation", 361.0),
+            ArmCommand(parts.single { it.modelNode == "Cran" }.id, "Cran Rotation", -121.0),
+            ArmCommand(parts.single { it.modelNode == "Cran" }.id, "Cran Rotation", 121.0),
+            ArmCommand(parts.single { it.modelNode == "Lift" }.id, "Height", 31.0),
+            ArmCommand(parts.single { it.modelNode == "Lift" }.id, "Height", Double.NaN),
+            ArmCommand(parts.single { it.modelNode == "Lift" }.id, "Height", Double.POSITIVE_INFINITY),
         ).forEach(simulator::reportCommand)
         assertEquals(initial.parts, simulator.armStateFlow.value.parts)
     }
@@ -114,86 +117,47 @@ class RoboArmSimulatorTest {
     }
 
     @Test
-    fun initialStateContainsAllFourParts() = withSimulator { simulator ->
+    fun telemetryContainsAbsolutePosesForEveryRenderedPart() = withSimulator { simulator ->
+        val parts = simulator.armStateFlow.value.parts
+        assertEquals(listOf("basement", "Mast", "Lift", "Cran", "Gripper", "Hand"), parts.map { it.modelNode })
+        assertEquals(Point3D(0.0, 0.0, -0.0), parts[0].position)
+        assertEquals(0.2, parts[1].position.y, 1e-9)
+        assertEquals(1.7, parts[2].position.y, 1e-9)
+        assertEquals(1.0, parts[4].position.x - parts[3].position.x, 1e-9)
+        assertEquals(-0.05, parts[4].position.y - parts[3].position.y, 1e-9)
+        assertEquals(-0.04, parts[5].position.x - parts[4].position.x, 1e-9)
+        assertEquals("meters", parts[2].toggles.single().unit)
+        assertEquals("degrees", parts[3].toggles.single().unit)
+    }
+
+    @Test
+    fun wireContractContainsWorldPosesWithoutClientMotionRules() = withSimulator { simulator ->
+        val json = Json { encodeDefaults = true }
         val state = simulator.armStateFlow.value
-        assertEquals(4, state.parts.size)
-        assertPoint(Point3D(0.0, 0.0, 0.0), state.parts[0].mesh.startPoint)
-        assertPoint(Point3D(0.0, 0.0, 30.0), state.parts[0].mesh.endPoint)
-        assertPoint(Point3D(11.5, 0.0, 25.0), state.parts[1].mesh.endPoint)
-        assertPoint(Point3D(21.5, 0.0, 24.0), state.parts[2].mesh.endPoint)
-    }
-
-    @Test
-    fun mastRotationRotatesCranAroundVerticalAxis() {
-        val state = stateAt(height = 5.0, angleDegrees = 90.0)
-        assertPoint(Point3D(0.0, 0.0, 30.0), state.parts[0].mesh.endPoint)
-        assertPoint(Point3D(0.0, 10.5, 4.0), state.parts[2].mesh.startPoint)
-        assertPoint(Point3D(0.0, 21.5, 4.0), state.parts[2].mesh.endPoint)
-        assertEquals(90.0, state.parts[0].toggles.single().value)
-    }
-
-    @Test
-    fun liftHeightMovesEntireCranWithoutChangingMast() {
-        val state = stateAt(height = 20.0, angleDegrees = 180.0)
-        assertPoint(Point3D(0.0, 0.0, 30.0), state.parts[0].mesh.endPoint)
-        assertPoint(Point3D(-11.5, 0.0, 20.0), state.parts[1].mesh.endPoint)
-        assertPoint(Point3D(-21.5, 0.0, 19.0), state.parts[2].mesh.endPoint)
-        assertEquals(20.0, state.parts[1].toggles.single().value)
-    }
-
-    @Test
-    fun accumulatesTranslationsAndNonCommutingRotationsThroughAllParents() {
-        val tip = TestPart(
-            localPosition = Point3D(0.0, 2.0, 0.0),
-            localRotation = RotationDegrees3D(0.0, 90.0, 0.0),
-        )
-        val child = TestPart(
-            localPosition = Point3D(2.0, 0.0, 0.0),
-            localRotation = RotationDegrees3D(90.0, 0.0, 0.0),
-            nextPart = tip,
-        )
-        val root = TestPart(
-            localPosition = Point3D(1.0, 2.0, 3.0),
-            localRotation = RotationDegrees3D(0.0, 0.0, 90.0),
-            nextPart = child,
-        )
-        val parts = root.toArmParts()
-        assertEquals(3, parts.size)
-        assertPoint(Point3D(1.0, 2.0, 3.0), parts[0].mesh.startPoint)
-        assertPoint(Point3D(1.0, 4.0, 3.0), parts[1].mesh.startPoint)
-        assertPoint(Point3D(1.0, 4.0, 5.0), parts[2].mesh.startPoint)
-        assertPoint(Point3D(1.0, 5.0, 5.0), parts[2].mesh.endPoint)
-    }
-
-    private data class TestPart(
-        override val localPosition: Point3D,
-        override val localRotation: RotationDegrees3D,
-        override val nextPart: RoboPart? = null,
-    ) : RoboPart {
-        override val id: String = UUID.randomUUID().toString()
-        override fun applyCommand(command: ArmCommand) = Unit
-        override val localMesh = Mesh(Point3D(0.0, 0.0, 0.0), Point3D(0.0, 0.0, 1.0))
-    }
-
-    private fun stateAt(height: Double, angleDegrees: Double): ArmState = runBlocking {
-        val scope = CoroutineScope(Job())
-        try {
-            val lift = Lift(scope, Cran(scope)).apply { setHeight(height) }
-            val mast = Mast(scope, lift).apply { moveToAngle(angleDegrees) }
-            withTimeout(20_000) {
-                lift.height.first { it == height }
-                mast.angleDegrees.first { it == angleDegrees }
-            }
-            ArmState(parts = mast.toArmParts())
-        } finally {
-            scope.cancel()
+        val encoded = json.encodeToString(state)
+        for (oldField in listOf("startPoint", "endPoint", "mesh", "motion", "referenceValue", "parentModelNode")) {
+            assertFalse(encoded.contains("\"$oldField\""))
         }
+        assertTrue(encoded.contains("rotationDegreesZ"))
+        assertEquals(state, json.decodeFromString<ArmState>(encoded))
     }
 
-    private fun assertPoint(expected: Point3D, actual: Point3D) {
-        assertEquals(expected.x, actual.x, 1e-9)
-        assertEquals(expected.y, actual.y, 1e-9)
-        assertEquals(expected.z, actual.z, 1e-9)
+    @Test
+    fun movingParentChangesDescendantWorldPosesWithoutChangingTheirReadings() = withSimulator { simulator ->
+        val initial = simulator.armStateFlow.value.parts
+        val mast = initial.single { it.modelNode == "Mast" }
+        simulator.reportCommand(ArmCommand(mast.id, "Mast Rotation", 3.0))
+        val state = withTimeout(5_000) {
+            simulator.armStateFlow.first { it.parts.single { part -> part.modelNode == "Mast" }.toggles.single().value == 3.0 }
+        }
+        assertEquals(initial[0], state.parts[0])
+        for (node in listOf("Cran", "Gripper", "Hand")) {
+            val before = initial.single { it.modelNode == node }
+            val after = state.parts.single { it.modelNode == node }
+            assertNotEquals(before.position, after.position)
+            assertNotEquals(before.rotationDegreesZ, after.rotationDegreesZ)
+            assertEquals(before.toggles, after.toggles)
+        }
     }
 
     private fun withSimulator(block: suspend (RoboArmSimulator) -> Unit) = runBlocking {
