@@ -8,7 +8,8 @@ data class ArmPartToggle(
     val name: String,
     val value: Double,
     val minValue: Double = 0.0,
-    val maxValue: Double = 180.0
+    val maxValue: Double = 180.0,
+    val targetValue: Double = value,
 )
 
 @Serializable

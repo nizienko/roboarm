@@ -6,18 +6,19 @@ import com.github.nizienko.roboarm.data.ArmCommand
 import com.github.nizienko.roboarm.data.ArmPartToggle
 import com.github.nizienko.roboarm.data.Mesh
 import com.github.nizienko.roboarm.data.Point3D
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.UUID
 
-class Gripper(override val nextPart: RoboPart? = null) : RoboPart {
+class Gripper(scope: CoroutineScope, override val nextPart: RoboPart? = null) : RoboPart {
     override val id: String = UUID.randomUUID().toString()
 
     override fun applyCommand(command: ArmCommand) {
         when (command.toggleName) {
-            "Gripper Rotation" -> _angle.value = command.value
-            "Gripper Expand" -> _gripExpand.value = command.value
+            "Gripper Rotation" -> rotationEngine.moveTo(command.value)
+            "Gripper Expand" -> expandEngine.moveTo(command.value)
         }
     }
     private val _angle = MutableStateFlow(0.0)
@@ -26,11 +27,20 @@ class Gripper(override val nextPart: RoboPart? = null) : RoboPart {
     private val _gripExpand = MutableStateFlow(5.0)
     val gripExpand: StateFlow<Double> = _gripExpand.asStateFlow()
 
+    private val rotationEngine = MoveEngine(
+        scope, _angle,
+        MoveEngineParameters(maxSpeed = 15.0, maxAcceleration = 10.0, minValue = 0.0, maxValue = 360.0),
+    )
+    private val expandEngine = MoveEngine(
+        scope, _gripExpand,
+        MoveEngineParameters(maxSpeed = 5.0, maxAcceleration = 10.0, minValue = 0.0, maxValue = 6.0),
+    )
+
 
     override val toggles: List<ArmPartToggle>
         get() = listOf(
-            ArmPartToggle("Gripper Rotation", _angle.value, maxValue = 360.0),
-            ArmPartToggle("Gripper Expand", _gripExpand.value, maxValue = 6.0)
+            ArmPartToggle("Gripper Rotation", _angle.value, maxValue = 360.0, targetValue = rotationEngine.target.value),
+            ArmPartToggle("Gripper Expand", _gripExpand.value, maxValue = 6.0, targetValue = expandEngine.target.value)
         )
 
 

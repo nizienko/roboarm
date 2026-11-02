@@ -19,10 +19,10 @@ import kotlinx.coroutines.launch
 
 class RoboArmSimulator(private val coroutineScope: CoroutineScope) {
 
-    private val gripper = Gripper()
-    private val cran = Cran(gripper)
-    private val lift = Lift(cran)
-    private val mast = Mast(lift)
+    private val gripper = Gripper(coroutineScope)
+    private val cran = Cran(coroutineScope, gripper)
+    private val lift = Lift(coroutineScope, cran)
+    private val mast = Mast(coroutineScope, lift)
 
     private val partsById = generateSequence<RoboPart>(mast) { it.nextPart }.associateBy { it.id }
 

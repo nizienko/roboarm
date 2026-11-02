@@ -13,6 +13,7 @@ export interface ArmPart {
     toggles: {
         name: string;
         value: number;
+        targetValue: number;
         minValue: number;
         maxValue: number;
     }[];
@@ -53,8 +54,11 @@ export function isArmState(value: unknown): value is ArmState {
             && part.toggles.every((toggle: unknown) => isRecord(toggle)
                 && typeof toggle.name === "string"
                 && isFiniteNumber(toggle.value)
+                && isFiniteNumber(toggle.targetValue)
                 && isFiniteNumber(toggle.minValue)
                 && isFiniteNumber(toggle.maxValue)
                 && toggle.minValue <= toggle.value
-                && toggle.value <= toggle.maxValue));
+                && toggle.value <= toggle.maxValue
+                && toggle.minValue <= toggle.targetValue
+                && toggle.targetValue <= toggle.maxValue));
 }

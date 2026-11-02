@@ -17,7 +17,9 @@ export function ArmControls({ state, disabled, onCommand }: ArmControlsProps) {
                     <div className="arm-control" key={id}>
                         <label htmlFor={id}>
                             {toggle.name}
-                            <output htmlFor={id}>{toggle.value}</output>
+                            <output htmlFor={id} title="Current position / target">
+                                {Number(toggle.value.toFixed(2))} / {Number(toggle.targetValue.toFixed(2))}
+                            </output>
                         </label>
                         <input
                             id={id}
@@ -25,7 +27,7 @@ export function ArmControls({ state, disabled, onCommand }: ArmControlsProps) {
                             min={toggle.minValue}
                             max={toggle.maxValue}
                             step="any"
-                            value={toggle.value}
+                            value={toggle.targetValue}
                             onChange={(event) => onCommand({
                                 partId: part.id,
                                 toggleName: toggle.name,
