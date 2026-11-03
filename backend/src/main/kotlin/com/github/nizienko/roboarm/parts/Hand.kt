@@ -15,15 +15,16 @@ class Hand(scope: CoroutineScope) : RoboPart {
     private val _opening = MutableStateFlow(0.0)
     val opening: StateFlow<Double> = _opening.asStateFlow()
 
-    private val openingEngine = MoveEngine(
-        scope, _opening,
-        MoveEngineParameters(maxSpeed = 0.05, maxAcceleration = 0.1, minValue = 0.0, maxValue = 0.24),
+    val driveSpecification = DriveSpecification(
+        name = "Hand Expand",
+        unit = "meters",
+        motion = MoveEngineParameters(maxSpeed = 0.05, maxAcceleration = 0.1, minValue = 0.0, maxValue = 0.18),
     )
 
+    private val openingEngine = MoveEngine(scope, _opening, driveSpecification.motion)
+
     override val toggles: List<ArmPartToggle>
-        get() = listOf(
-            ArmPartToggle("Hand Expand", _opening.value, maxValue = 0.18, targetValue = openingEngine.target.value, unit = "meters"),
-        )
+        get() = listOf(driveSpecification.toggle(_opening.value, openingEngine.target.value))
 
     override val modelNode: String = "Hand"
     override val nextPart: RoboPart? = null
@@ -32,7 +33,7 @@ class Hand(scope: CoroutineScope) : RoboPart {
     override val localRotationDegreesZ = 0.0
     override fun applyCommand(command: ArmCommand) {
         when (command.toggleName) {
-            "Hand Expand" -> openingEngine.moveTo(command.value)
+            driveSpecification.name -> openingEngine.moveTo(command.value)
         }
     }
 }

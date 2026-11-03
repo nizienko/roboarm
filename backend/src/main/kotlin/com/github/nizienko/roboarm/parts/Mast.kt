@@ -20,15 +20,13 @@ class Mast(scope: CoroutineScope, override val nextPart: RoboPart? = null): Robo
     private val _angle = MutableStateFlow(0.0)
     val angleDegrees: StateFlow<Double> = _angle.asStateFlow()
 
-    private val moveEngine: MoveEngine = MoveEngine(
-        scope, _angle,
-        MoveEngineParameters(
-            maxSpeed = 45.0,
-            maxAcceleration = 25.0,
-            minValue = 0.0,
-            maxValue = 360.0
-        ),
+    val driveSpecification = DriveSpecification(
+        name = "Mast Rotation",
+        unit = "degrees",
+        motion = MoveEngineParameters(maxSpeed = 45.0, maxAcceleration = 25.0, minValue = 0.0, maxValue = 360.0, circled = true),
     )
+
+    private val moveEngine = MoveEngine(scope, _angle, driveSpecification.motion)
 
 
     fun moveToAngle(degrees: Double) {
@@ -37,15 +35,7 @@ class Mast(scope: CoroutineScope, override val nextPart: RoboPart? = null): Robo
 
     override val modelNode: String = "Mast"
     override val toggles: List<ArmPartToggle>
-        get() = listOf(
-            ArmPartToggle(
-                "Mast Rotation",
-                _angle.value,
-                maxValue = 360.0,
-                targetValue = moveEngine.target.value,
-                unit = "degrees",
-            ),
-        )
+        get() = listOf(driveSpecification.toggle(_angle.value, moveEngine.target.value))
 
     override val localPosition: Point3D = Point3D(0.0, 0.0, 0.2)
     override val localRotationDegreesZ: Double

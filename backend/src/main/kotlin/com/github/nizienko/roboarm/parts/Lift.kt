@@ -23,10 +23,13 @@ class Lift(
     private val _height = MutableStateFlow(1.5)
     val height: StateFlow<Double> = _height.asStateFlow()
 
-    private val moveEngine: MoveEngine = MoveEngine(
-        scope, _height,
-        MoveEngineParameters(maxSpeed = 0.3, maxAcceleration = 0.5, minValue = 0.65, maxValue = 2.7),
+    val driveSpecification = DriveSpecification(
+        name = "Height",
+        unit = "meters",
+        motion = MoveEngineParameters(maxSpeed = 0.3, maxAcceleration = 0.5, minValue = 0.65, maxValue = 2.7),
     )
+
+    private val moveEngine = MoveEngine(scope, _height, driveSpecification.motion)
 
     fun setHeight(height: Double) {
         moveEngine.moveTo(height)
@@ -34,16 +37,7 @@ class Lift(
 
     override val modelNode: String = "Lift"
     override val toggles: List<ArmPartToggle>
-        get() = listOf(
-            ArmPartToggle(
-                "Height",
-                _height.value,
-                minValue = 0.65,
-                maxValue = 2.7,
-                targetValue = moveEngine.target.value,
-                unit = "meters",
-            ),
-        )
+        get() = listOf(driveSpecification.toggle(_height.value, moveEngine.target.value))
 
     override val localPosition: Point3D
         get() = Point3D(0.0, 0.0, _height.value)

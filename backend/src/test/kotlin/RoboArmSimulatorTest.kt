@@ -4,6 +4,8 @@ import com.github.nizienko.roboarm.parts.Cran
 import com.github.nizienko.roboarm.data.Point3D
 import com.github.nizienko.roboarm.data.ArmState
 import com.github.nizienko.roboarm.data.ArmCommand
+import com.github.nizienko.roboarm.data.ArmTargetCommand
+import com.github.nizienko.roboarm.data.ArmRequest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
@@ -19,6 +21,49 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 class RoboArmSimulatorTest {
+    @Test
+    fun protocolAcceptsBothJointAndTargetCommands() {
+        val joint = ArmCommand("mast", "Mast Rotation", 90.0)
+        val target = ArmTargetCommand(Point3D(1.0, 1.0, 1.5))
+        assertEquals(joint, Json.decodeFromString<ArmRequest>("""{"partId":"mast","toggleName":"Mast Rotation","value":90.0}"""))
+        assertEquals(target, Json.decodeFromString<ArmRequest>("""{"target":{"x":1.0,"y":1.0,"z":1.5}}"""))
+        assertEquals(target, Json.decodeFromString<ArmRequest>(Json.encodeToString<ArmRequest>(target)))
+    }
+
+    @Test
+    fun targetMovesGripperToXYAndSetsLiftHeightDirectly() = withSimulator { simulator ->
+        assertTrue(simulator.reportTarget(ArmTargetCommand(Point3D(1.0, 1.0, 1.2))))
+        val commanded = simulator.armStateFlow.value.parts
+        assertEquals(1.2, commanded.single { it.modelNode == "Lift" }.toggles.single().targetValue)
+        assertEquals(0.0, commanded.single { it.modelNode == "Gripper" }.toggles.single().targetValue)
+        assertEquals(0.0, commanded.single { it.modelNode == "Hand" }.toggles.single().targetValue)
+        val state = withTimeout(15_000) {
+            simulator.armStateFlow.first {
+                it.parts.flatMap { part -> part.toggles }.all { toggle -> toggle.value == toggle.targetValue }
+            }
+        }
+        // Telemetry maps backend (x, y, z) to scene (x, z, -y).
+        val gripper = state.parts.single { it.modelNode == "Gripper" }
+        assertEquals(1.0, gripper.position.x, 1e-8)
+        assertEquals(-1.0, gripper.position.z, 1e-8)
+        assertEquals(1.2, state.parts.single { it.modelNode == "Lift" }.toggles.single().value)
+    }
+
+    @Test
+    fun invalidTargetDoesNotPartiallyApplyAnyJoint() = withSimulator { simulator ->
+        val before = simulator.armStateFlow.value.parts
+        for (point in listOf(Point3D(3.0, 0.0, 1.0), Point3D(0.0, 0.0, 1.0),
+            Point3D(1.0, 1.0, 0.64), Point3D(1.0, 1.0, 2.71),
+            Point3D(1.0, 1.0, Double.NaN), Point3D(Double.NaN, 0.0, 1.0))) {
+            assertFalse(simulator.reportTarget(ArmTargetCommand(point)))
+            assertEquals(before, simulator.armStateFlow.value.parts)
+        }
+        for (height in listOf(0.65, 2.7)) {
+            assertTrue(simulator.reportTarget(ArmTargetCommand(Point3D(2.0, 0.0, height))))
+            assertEquals(height, simulator.armStateFlow.value.parts.single { it.modelNode == "Lift" }.toggles.single().targetValue)
+        }
+    }
+
     @Test
     fun commandsUpdateActualAndTargetJointValues() = withSimulator { simulator ->
         val parts = simulator.armStateFlow.value.parts

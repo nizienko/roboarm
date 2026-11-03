@@ -44,3 +44,41 @@
 .arm-control-limits {
     font-size: 0.8rem;
 }
+
+.arm-target {
+    grid-column: 1 / -1;
+}
+
+.arm-target h3 {
+    margin: 0;
+}
+
+.arm-target p {
+    margin: 8px 0 12px;
+}
+
+.arm-target-coordinates {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.arm-target input {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    margin-top: 4px;
+    padding: 8px;
+}
+
+.arm-target fieldset {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+}
+
+.arm-target fieldset:disabled {
+    opacity: 0.5;
+}

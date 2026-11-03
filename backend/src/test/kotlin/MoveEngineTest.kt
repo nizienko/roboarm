@@ -124,6 +124,68 @@ class MoveEngineTest {
     }
 
     @Test
+    fun circledTakesShortestPathAcrossBoundaryInBothDirections() {
+        for ((start, target, direction) in listOf(Triple(330.0, 10.0, 1.0), Triple(10.0, 330.0, -1.0))) {
+            val model = MotionModel(start, limits.copy(circled = true))
+            model.moveTo(target)
+            model.advance(0.5)
+            assertEquals(direction * 60.0, model.velocity, 1e-9)
+            model.advance(0.25)
+            assertEquals(if (direction > 0.0) 359.5833333333333 else 340.4166666666667, model.position, 1e-8)
+            model.advance(1.0)
+            assertEquals(target, model.position)
+            assertEquals(0.0, model.velocity)
+        }
+    }
+
+    @Test
+    fun circledWrapsPositionWithoutClampingOrLosingSpeed() {
+        val model = MotionModel(330.0, limits.copy(circled = true))
+        model.moveTo(60.0)
+        model.advance(1.0)
+        assertEquals(15.0, model.position, 1e-9)
+        assertEquals(60.0, model.velocity, 1e-9)
+        model.moveTo(80.0)
+        model.advance(0.1)
+        assertEquals(21.0, model.position, 1e-9)
+        assertEquals(60.0, model.velocity, 1e-9)
+        model.advance(10.0)
+        assertEquals(80.0, model.position)
+        assertEquals(0.0, model.velocity)
+    }
+
+    @Test
+    fun circledBrakesAcrossBoundaryBeforeReturningToNewTarget() {
+        val model = MotionModel(330.0, limits.copy(circled = true))
+        model.moveTo(60.0)
+        model.advance(0.5)
+        model.moveTo(350.0)
+        model.advance(0.5)
+        assertEquals(0.0, model.position, 1e-9)
+        assertEquals(0.0, model.velocity, 1e-9)
+        model.advance(10.0)
+        assertEquals(350.0, model.position)
+        assertEquals(0.0, model.velocity)
+    }
+
+    @Test
+    fun circledUsesConfiguredRangeAndTreatsEndpointsAsEquivalent() {
+        val model = MotionModel(170.0, limits.copy(minValue = -180.0, maxValue = 180.0, circled = true))
+        model.moveTo(-170.0)
+        model.advance(0.5)
+        assertTrue(model.position < -170.0)
+        assertTrue(model.velocity > 0.0)
+        model.advance(10.0)
+        assertEquals(-170.0, model.position)
+        model.moveTo(-180.0)
+        model.advance(10.0)
+        model.moveTo(180.0)
+        model.advance(0.1)
+        assertEquals(180.0, model.position)
+        assertEquals(0.0, model.velocity)
+    }
+
+    @Test
     fun rejectsInvalidParametersAndTargets() {
         assertFailsWith<IllegalArgumentException> { MoveEngineParameters(maxSpeed = 0.0) }
         assertFailsWith<IllegalArgumentException> { MoveEngineParameters(maxAcceleration = Double.NaN) }

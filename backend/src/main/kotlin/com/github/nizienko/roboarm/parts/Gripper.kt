@@ -15,22 +15,23 @@ class Gripper(scope: CoroutineScope, override val nextPart: RoboPart? = null) : 
 
     override fun applyCommand(command: ArmCommand) {
         when (command.toggleName) {
-            "Gripper Rotation" -> rotationEngine.moveTo(command.value)
+            driveSpecification.name -> rotationEngine.moveTo(command.value)
         }
     }
     private val _angle = MutableStateFlow(0.0)
     val angleDegrees: StateFlow<Double> = _angle.asStateFlow()
 
-    private val rotationEngine = MoveEngine(
-        scope, _angle,
-        MoveEngineParameters(maxSpeed = 120.0, maxAcceleration = 60.0, minValue = 0.0, maxValue = 360.0),
+    val driveSpecification = DriveSpecification(
+        name = "Gripper Rotation",
+        unit = "degrees",
+        motion = MoveEngineParameters(maxSpeed = 120.0, maxAcceleration = 60.0, minValue = 0.0, maxValue = 360.0, circled = true),
     )
+
+    private val rotationEngine = MoveEngine(scope, _angle, driveSpecification.motion)
 
 
     override val toggles: List<ArmPartToggle>
-        get() = listOf(
-            ArmPartToggle("Gripper Rotation", _angle.value, maxValue = 360.0, targetValue = rotationEngine.target.value, unit = "degrees"),
-        )
+        get() = listOf(driveSpecification.toggle(_angle.value, rotationEngine.target.value))
 
 
     override val localPosition: Point3D = Point3D(1.0, 0.0, -0.05)

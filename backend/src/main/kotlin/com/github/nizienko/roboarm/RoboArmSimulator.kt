@@ -2,6 +2,7 @@ package com.github.nizienko.roboarm
 
 import com.github.nizienko.roboarm.data.ArmPartToggle
 import com.github.nizienko.roboarm.data.ArmCommand
+import com.github.nizienko.roboarm.data.ArmTargetCommand
 import com.github.nizienko.roboarm.data.ArmState
 import com.github.nizienko.roboarm.data.Point3D
 import com.github.nizienko.roboarm.parts.Basement
@@ -58,6 +59,22 @@ class RoboArmSimulator(private val coroutineScope: CoroutineScope) {
 
         part.applyCommand(command)
         _armStateFlow.value = calcState()
+    }
+
+    fun reportTarget(command: ArmTargetCommand): Boolean {
+        val target = command.target
+        val height = lift.driveSpecification.motion
+        if (!target.z.isFinite() || target.z !in height.range) return false
+        val angles = solveInverseKinematics(
+            target, cran.localPosition.x, gripper.localPosition.x,
+            mast.driveSpecification.motion, cran.driveSpecification.motion,
+            mast.angleDegrees.value, cran.angleDegrees.value,
+        ) ?: return false
+        mast.moveToAngle(angles.mast)
+        cran.moveToAngle(angles.cran)
+        lift.setHeight(target.z)
+        _armStateFlow.value = calcState()
+        return true
     }
 }
 

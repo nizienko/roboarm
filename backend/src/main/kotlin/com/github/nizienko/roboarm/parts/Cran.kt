@@ -20,10 +20,13 @@ class Cran(scope: CoroutineScope, override val nextPart: RoboPart? = null): Robo
     private val _angle = MutableStateFlow(0.0)
     val angleDegrees: StateFlow<Double> = _angle.asStateFlow()
 
-    private val moveEngine = MoveEngine(
-        scope, _angle,
-        MoveEngineParameters(maxSpeed = 45.0, maxAcceleration = 25.0, minValue = -120.0, maxValue = 120.0),
+    val driveSpecification = DriveSpecification(
+        name = "Cran Rotation",
+        unit = "degrees",
+        motion = MoveEngineParameters(maxSpeed = 45.0, maxAcceleration = 25.0, minValue = -120.0, maxValue = 120.0),
     )
+
+    private val moveEngine = MoveEngine(scope, _angle, driveSpecification.motion)
 
     fun moveToAngle(degrees: Double) {
         moveEngine.moveTo(degrees)
@@ -36,15 +39,6 @@ class Cran(scope: CoroutineScope, override val nextPart: RoboPart? = null): Robo
         get() = _angle.value
 
     override val toggles: List<ArmPartToggle>
-        get() = listOf(
-            ArmPartToggle(
-                "Cran Rotation",
-                _angle.value,
-                minValue = -120.0,
-                maxValue = 120.0,
-                targetValue = moveEngine.target.value,
-                unit = "degrees",
-            ),
-        )
+        get() = listOf(driveSpecification.toggle(_angle.value, moveEngine.target.value))
 
 }

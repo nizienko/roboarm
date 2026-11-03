@@ -19,7 +19,22 @@ data class MoveEngineParameters(
     val maxAcceleration: Double = 120.0,
     val minValue: Double = 0.0,
     val maxValue: Double = 360.0,
+    val circled: Boolean = false,
 ) {
+    val range: ClosedFloatingPointRange<Double>
+        get() = minValue..maxValue
+
+    fun displacement(from: Double, to: Double): Double {
+        var distance = to - from
+        if (circled) {
+            val period = maxValue - minValue
+            distance %= period
+            if (distance > period / 2.0) distance -= period
+            if (distance < -period / 2.0) distance += period
+        }
+        return distance
+    }
+
     init {
         require(maxSpeed.isFinite() && maxSpeed > 0.0)
         require(maxAcceleration.isFinite() && maxAcceleration > 0.0)
@@ -60,8 +75,17 @@ class MoveEngine(
 }
 
 internal class MotionModel(initialPosition: Double, private val limits: MoveEngineParameters) {
-    var position: Double = initialPosition
-        private set
+    // Plan in continuous coordinates so crossing the seam does not change velocity.
+    private var trajectoryPosition = initialPosition
+    private var trajectoryTarget = initialPosition
+    val position: Double
+        get() = if (limits.circled && segments.isNotEmpty()) {
+            val period = limits.maxValue - limits.minValue
+            val offset = (trajectoryPosition - limits.minValue) % period
+            limits.minValue + if (offset < 0.0) offset + period else offset
+        } else {
+            trajectoryPosition
+        }
     var velocity: Double = 0.0
         private set
     var target: Double = initialPosition
@@ -78,28 +102,30 @@ internal class MotionModel(initialPosition: Double, private val limits: MoveEngi
         require(value.isFinite() && value in limits.minValue..limits.maxValue)
         if (value == target) return
         target = value
+        val distance = limits.displacement(position, value)
+        trajectoryTarget = if (limits.circled) trajectoryPosition + distance else value
         segments.clear()
         val a = limits.maxAcceleration
-        val stoppingPosition = position + velocity * abs(velocity) / (2.0 * a)
-        val direction = sign(target - stoppingPosition)
+        val stoppingPosition = trajectoryPosition + velocity * abs(velocity) / (2.0 * a)
+        val direction = sign(trajectoryTarget - stoppingPosition)
 
         if (direction == 0.0 || direction * velocity < 0.0) {
             // The target is behind the stopping point: brake before returning.
             addSegment(-sign(velocity) * a, abs(velocity) / a)
             planFromRest(stoppingPosition)
         } else {
-            plan(position, direction * velocity, direction)
+            plan(trajectoryPosition, direction * velocity, direction)
         }
     }
 
     private fun planFromRest(start: Double) {
-        val direction = sign(target - start)
+        val direction = sign(trajectoryTarget - start)
         if (direction != 0.0) plan(start, 0.0, direction)
     }
 
     private fun plan(start: Double, speed: Double, direction: Double) {
         val a = limits.maxAcceleration
-        val distance = abs(target - start)
+        val distance = abs(trajectoryTarget - start)
         val peakSpeed = min(limits.maxSpeed, sqrt(a * distance + speed * speed / 2.0))
         val acceleratingDistance = (peakSpeed * peakSpeed - speed * speed) / (2.0 * a)
         val brakingDistance = peakSpeed * peakSpeed / (2.0 * a)
@@ -120,17 +146,19 @@ internal class MotionModel(initialPosition: Double, private val limits: MoveEngi
         while (timeLeft > 0.0 && segments.isNotEmpty()) {
             val segment = segments.first()
             val step = min(timeLeft, segment.remaining)
-            position += velocity * step + segment.acceleration * step * step / 2.0
+            trajectoryPosition += velocity * step + segment.acceleration * step * step / 2.0
             velocity += segment.acceleration * step
             timeLeft -= step
             segment.remaining -= step
             if (segment.remaining <= 0.0) segments.removeFirst()
         }
         // Planned extrema stay within limits; discard roundoff at a hard boundary.
-        position = position.coerceIn(limits.minValue, limits.maxValue)
+        if (!limits.circled) {
+            trajectoryPosition = trajectoryPosition.coerceIn(limits.minValue, limits.maxValue)
+        }
         if (segments.isEmpty()) {
             // Every planned profile ends at rest; remove accumulated floating-point error.
-            position = target
+            trajectoryPosition = target
             velocity = 0.0
         }
     }

@@ -10,6 +10,7 @@ interface ArmControlsProps {
 export function ArmControls({ state, disabled, onCommand }: ArmControlsProps) {
     return (
         <fieldset className="arm-controls" disabled={disabled || !state}>
+            <h4>Kinematics</h4>
             {state?.parts.map((part) => part.toggles.map((toggle) => {
                 const id = `arm-control-${part.id}-${toggle.name}`;
 
