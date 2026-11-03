@@ -31,10 +31,10 @@ class RoboArmSimulatorTest {
     }
 
     @Test
-    fun targetMovesGripperToWorldXYZ() = withSimulator { simulator ->
+    fun targetMovesGripperToXYAndHandToWorldHeight() = withSimulator { simulator ->
         assertTrue(simulator.reportTarget(ArmTargetCommand(Point3D(1.0, 1.0, 1.2))))
         val commanded = simulator.armStateFlow.value.parts
-        assertEquals(1.3, commanded.single { it.modelNode == "Lift" }.toggles.single().targetValue, 1e-9)
+        assertEquals(1.6, commanded.single { it.modelNode == "Lift" }.toggles.single().targetValue, 1e-9)
         assertEquals(0.0, commanded.single { it.modelNode == "Gripper" }.toggles.single().targetValue)
         assertEquals(0.0, commanded.single { it.modelNode == "Hand" }.toggles.single().targetValue)
         val state = withTimeout(15_000) {
@@ -46,7 +46,9 @@ class RoboArmSimulatorTest {
         val gripper = state.parts.single { it.modelNode == "Gripper" }
         assertEquals(1.0, gripper.position.x, 1e-8)
         assertEquals(-1.0, gripper.position.z, 1e-8)
-        assertEquals(1.2, gripper.position.y, 1e-8)
+        assertEquals(1.5, gripper.position.y, 1e-8)
+        val hand = state.parts.single { it.modelNode == "Hand" }
+        assertEquals(1.2, hand.position.y, 1e-8)
     }
 
     @Test

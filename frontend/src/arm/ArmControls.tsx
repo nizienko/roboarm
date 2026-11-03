@@ -19,7 +19,7 @@ export function ArmControls({ state, disabled, onCommand }: ArmControlsProps) {
                         <label htmlFor={id}>
                             {toggle.name} ({toggle.unit === "meters" ? "m" : "°"})
                             <output htmlFor={id} title="Current position / target">
-                                {toggle.value.toFixed(1)} / {toggle.targetValue.toFixed(1)}
+                                {toggle.value.toFixed(2)} / {toggle.targetValue.toFixed(2)}
                             </output>
                         </label>
                         <input

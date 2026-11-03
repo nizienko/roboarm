@@ -24,6 +24,7 @@ const state = {
     parts: [
         { modelNode: 'Lift', toggles: [{ name: 'Height', value: 1.5, minValue: 0.65, maxValue: 2.7 }] },
         { modelNode: 'Gripper', position: { x: 2, y: 1.4, z: 0 }, toggles: [] },
+        { modelNode: 'Hand', position: { x: 1.96, y: 1.1, z: 0 }, toggles: [] },
     ],
 };
 const render = (props = {}) => renderToStaticMarkup(createElement(IKArmControls, {
@@ -34,14 +35,16 @@ test('IK controls disable the button and coordinate inputs when disconnected', (
     assert.match(render({ disabled: true }), /<fieldset disabled="">/);
 });
 
-test('IK controls stay disabled until lift limits arrive', () => {
+test('IK controls stay disabled until lift limits and hand position arrive', () => {
     assert.match(render({ state: undefined }), /<fieldset disabled="">/);
     assert.match(render({ state: { time: 1, parts: [] } }), /<fieldset disabled="">/);
+    assert.match(render({ state: { ...state, parts: state.parts.filter(p => p.modelNode !== 'Hand') } }), /<fieldset disabled="">/);
+    assert.match(render({ state: { ...state, parts: state.parts.filter(p => p.modelNode !== 'Lift') } }), /<fieldset disabled="">/);
 });
 
-test('connected IK controls expose the world height range and initial coordinates', () => {
+test('connected IK controls expose the hand world height range and initial coordinates', () => {
     const html = render();
     assert.doesNotMatch(html, /disabled=""/);
-    assert.match(html, /id="arm-target-z"[^>]*min="0.55"[^>]*max="2.6"[^>]*value="1.5"/);
+    assert.match(html, /id="arm-target-z"[^>]*min="0.25"[^>]*max="2.3"[^>]*value="1.5"/);
     assert.match(html, /x=2.00; y=0.00; z=1.50/);
 });
