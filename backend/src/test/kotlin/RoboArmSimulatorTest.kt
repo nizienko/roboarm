@@ -1,6 +1,6 @@
 import com.github.nizienko.roboarm.RoboArmSimulator
 import com.github.nizienko.roboarm.toArmParts
-import com.github.nizienko.roboarm.parts.Cran
+import com.github.nizienko.roboarm.parts.Elbow
 import com.github.nizienko.roboarm.data.Point3D
 import com.github.nizienko.roboarm.data.ArmState
 import com.github.nizienko.roboarm.data.ArmCommand
@@ -31,24 +31,24 @@ class RoboArmSimulatorTest {
     }
 
     @Test
-    fun targetMovesGripperToXYAndHandToWorldHeight() = withSimulator { simulator ->
+    fun targetMovesWristToXYAndGripperJawToWorldHeight() = withSimulator { simulator ->
         assertTrue(simulator.reportTarget(ArmTargetCommand(Point3D(1.0, 1.0, 1.2))))
         val commanded = simulator.armStateFlow.value.parts
         assertEquals(1.6, commanded.single { it.modelNode == "Lift" }.toggles.single().targetValue, 1e-9)
-        assertEquals(0.0, commanded.single { it.modelNode == "Gripper" }.toggles.single().targetValue)
-        assertEquals(0.0, commanded.single { it.modelNode == "Hand" }.toggles.single().targetValue)
+        assertEquals(0.0, commanded.single { it.modelNode == "Wrist" }.toggles.single().targetValue)
+        assertEquals(0.0, commanded.single { it.modelNode == "GripperJaw" }.toggles.single().targetValue)
         val state = withTimeout(15_000) {
             simulator.armStateFlow.first {
                 it.parts.flatMap { part -> part.toggles }.all { toggle -> toggle.value == toggle.targetValue }
             }
         }
         // Telemetry maps backend (x, y, z) to scene (x, z, -y).
-        val gripper = state.parts.single { it.modelNode == "Gripper" }
-        assertEquals(1.0, gripper.position.x, 1e-8)
-        assertEquals(-1.0, gripper.position.z, 1e-8)
-        assertEquals(1.5, gripper.position.y, 1e-8)
-        val hand = state.parts.single { it.modelNode == "Hand" }
-        assertEquals(1.2, hand.position.y, 1e-8)
+        val wrist = state.parts.single { it.modelNode == "Wrist" }
+        assertEquals(1.0, wrist.position.x, 1e-8)
+        assertEquals(-1.0, wrist.position.z, 1e-8)
+        assertEquals(1.5, wrist.position.y, 1e-8)
+        val gripperJaw = state.parts.single { it.modelNode == "GripperJaw" }
+        assertEquals(1.2, gripperJaw.position.y, 1e-8)
     }
 
     @Test
@@ -56,7 +56,7 @@ class RoboArmSimulatorTest {
         val parts = simulator.armStateFlow.value.parts
         simulator.reportCommand(ArmCommand(parts.single { it.modelNode == "Mast" }.id, "Mast Rotation", 90.0))
         simulator.reportCommand(ArmCommand(parts.single { it.modelNode == "Lift" }.id, "Height", 1.0))
-        simulator.reportCommand(ArmCommand(parts.single { it.modelNode == "Cran" }.id, "Cran Rotation", -15.0))
+        simulator.reportCommand(ArmCommand(parts.single { it.modelNode == "Elbow" }.id, "Elbow rotation", -15.0))
 
         val state = withTimeout(20_000) {
             simulator.armStateFlow.first {
@@ -65,23 +65,23 @@ class RoboArmSimulatorTest {
         }
         assertEquals(90.0, state.parts.single { it.modelNode == "Mast" }.toggles.single().value)
         assertEquals(1.0, state.parts.single { it.modelNode == "Lift" }.toggles.single().value)
-        assertEquals(-15.0, state.parts.single { it.modelNode == "Cran" }.toggles.single().value)
+        assertEquals(-15.0, state.parts.single { it.modelNode == "Elbow" }.toggles.single().value)
         assertEquals(parts.map { it.id }, state.parts.map { it.id })
     }
 
     @Test
-    fun gripperRotationAndHandExpansionMoveIndependently() = withSimulator { simulator ->
+    fun wristRotationAndGripperOpeningMoveIndependently() = withSimulator { simulator ->
         val parts = simulator.armStateFlow.value.parts
-        val gripper = parts.single { it.modelNode == "Gripper" }
-        val hand = parts.single { it.modelNode == "Hand" }
-        assertEquals("Gripper Rotation", gripper.toggles.single().name)
-        assertEquals("Hand Expand", hand.toggles.single().name)
-        simulator.reportCommand(ArmCommand(gripper.id, "Gripper Rotation", 3.0))
-        simulator.reportCommand(ArmCommand(hand.id, "Hand Expand", 0.1))
+        val wrist = parts.single { it.modelNode == "Wrist" }
+        val gripperJaw = parts.single { it.modelNode == "GripperJaw" }
+        assertEquals("Wrist rotation", wrist.toggles.single().name)
+        assertEquals("Gripper opening", gripperJaw.toggles.single().name)
+        simulator.reportCommand(ArmCommand(wrist.id, "Wrist rotation", 3.0))
+        simulator.reportCommand(ArmCommand(gripperJaw.id, "Gripper opening", 0.1))
 
         val commanded = simulator.armStateFlow.value.parts
-        val rotation = commanded.single { it.modelNode == "Gripper" }.toggles.single()
-        val opening = commanded.single { it.modelNode == "Hand" }.toggles.single()
+        val rotation = commanded.single { it.modelNode == "Wrist" }.toggles.single()
+        val opening = commanded.single { it.modelNode == "GripperJaw" }.toggles.single()
         assertEquals(3.0, rotation.targetValue)
         assertEquals(0.1, opening.targetValue)
         assertNotEquals(3.0, rotation.value)
@@ -89,14 +89,14 @@ class RoboArmSimulatorTest {
 
         val state = withTimeout(5_000) {
             simulator.armStateFlow.first {
-                it.parts.filter { part -> part.modelNode in listOf("Gripper", "Hand") }
+                it.parts.filter { part -> part.modelNode in listOf("Wrist", "GripperJaw") }
                     .flatMap { part -> part.toggles }.all { toggle -> toggle.value == toggle.targetValue }
             }
         }
-        assertEquals(3.0, state.parts.single { it.modelNode == "Gripper" }.toggles.single().value)
-        assertEquals(0.1, state.parts.single { it.modelNode == "Hand" }.toggles.single().value)
+        assertEquals(3.0, state.parts.single { it.modelNode == "Wrist" }.toggles.single().value)
+        assertEquals(0.1, state.parts.single { it.modelNode == "GripperJaw" }.toggles.single().value)
         assertEquals(0.0, state.parts.single { it.modelNode == "Mast" }.toggles.single().value)
-        assertEquals(0.0, state.parts.single { it.modelNode == "Cran" }.toggles.single().value)
+        assertEquals(0.0, state.parts.single { it.modelNode == "Elbow" }.toggles.single().value)
     }
 
     @Test
@@ -107,11 +107,11 @@ class RoboArmSimulatorTest {
             ArmCommand("unknown-part", "Mast Rotation", 45.0),
             ArmCommand("", "Height", 10.0),
             ArmCommand(parts.single { it.modelNode == "Mast" }.id, "Height", 10.0),
-            ArmCommand(parts.single { it.modelNode == "Cran" }.id, "Mast Rotation", 10.0),
+            ArmCommand(parts.single { it.modelNode == "Elbow" }.id, "Mast Rotation", 10.0),
             ArmCommand(parts.single { it.modelNode == "Mast" }.id, "Mast Rotation", -1.0),
             ArmCommand(parts.single { it.modelNode == "Mast" }.id, "Mast Rotation", 361.0),
-            ArmCommand(parts.single { it.modelNode == "Cran" }.id, "Cran Rotation", -121.0),
-            ArmCommand(parts.single { it.modelNode == "Cran" }.id, "Cran Rotation", 121.0),
+            ArmCommand(parts.single { it.modelNode == "Elbow" }.id, "Elbow rotation", parts.single { it.modelNode == "Elbow" }.toggles.single().minValue - 1.0),
+            ArmCommand(parts.single { it.modelNode == "Elbow" }.id, "Elbow rotation", parts.single { it.modelNode == "Elbow" }.toggles.single().maxValue + 1.0),
             ArmCommand(parts.single { it.modelNode == "Lift" }.id, "Height", 31.0),
             ArmCommand(parts.single { it.modelNode == "Lift" }.id, "Height", Double.NaN),
             ArmCommand(parts.single { it.modelNode == "Lift" }.id, "Height", Double.POSITIVE_INFINITY),
@@ -137,8 +137,8 @@ class RoboArmSimulatorTest {
     fun partIdsAreUniqueEvenForPartsOfTheSameType() {
         val scope = CoroutineScope(Job())
         try {
-            val tip = Cran(scope)
-            val root = Cran(scope, tip)
+            val tip = Elbow(scope)
+            val root = Elbow(scope, tip)
             val parts = root.toArmParts()
             assertEquals(2, parts.map { it.id }.toSet().size)
             assertEquals(listOf(root.id, tip.id), parts.map { it.id })
@@ -151,7 +151,7 @@ class RoboArmSimulatorTest {
     @Test
     fun telemetryContainsAbsolutePosesForEveryRenderedPart() = withSimulator { simulator ->
         val parts = simulator.armStateFlow.value.parts
-        assertEquals(listOf("basement", "Mast", "Lift", "Cran", "Gripper", "Hand"), parts.map { it.modelNode })
+        assertEquals(listOf("Base", "Mast", "Lift", "Elbow", "Wrist", "GripperJaw"), parts.map { it.modelNode })
         assertEquals(Point3D(0.0, 0.0, -0.0), parts[0].position)
         assertEquals(0.2, parts[1].position.y, 1e-9)
         assertEquals(1.7, parts[2].position.y, 1e-9)
@@ -183,7 +183,7 @@ class RoboArmSimulatorTest {
             simulator.armStateFlow.first { it.parts.single { part -> part.modelNode == "Mast" }.toggles.single().value == 3.0 }
         }
         assertEquals(initial[0], state.parts[0])
-        for (node in listOf("Cran", "Gripper", "Hand")) {
+        for (node in listOf("Elbow", "Wrist", "GripperJaw")) {
             val before = initial.single { it.modelNode == node }
             val after = state.parts.single { it.modelNode == node }
             assertNotEquals(before.position, after.position)

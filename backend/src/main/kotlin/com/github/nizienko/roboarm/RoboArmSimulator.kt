@@ -5,10 +5,10 @@ import com.github.nizienko.roboarm.data.ArmCommand
 import com.github.nizienko.roboarm.data.ArmTargetCommand
 import com.github.nizienko.roboarm.data.ArmState
 import com.github.nizienko.roboarm.data.Point3D
-import com.github.nizienko.roboarm.parts.Basement
-import com.github.nizienko.roboarm.parts.Cran
-import com.github.nizienko.roboarm.parts.Gripper
-import com.github.nizienko.roboarm.parts.Hand
+import com.github.nizienko.roboarm.parts.Base
+import com.github.nizienko.roboarm.parts.Elbow
+import com.github.nizienko.roboarm.parts.Wrist
+import com.github.nizienko.roboarm.parts.GripperJaw
 import com.github.nizienko.roboarm.parts.Lift
 import com.github.nizienko.roboarm.parts.Mast
 import kotlinx.coroutines.CoroutineScope
@@ -21,17 +21,17 @@ import kotlinx.coroutines.launch
 
 class RoboArmSimulator(private val coroutineScope: CoroutineScope) {
 
-    private val hand = Hand(coroutineScope)
-    private val gripper = Gripper(coroutineScope, hand)
-    private val cran = Cran(coroutineScope, gripper)
-    private val lift = Lift(coroutineScope, cran)
+    private val gripperJaw = GripperJaw(coroutineScope)
+    private val wrist = Wrist(coroutineScope, gripperJaw)
+    private val elbow = Elbow(coroutineScope, wrist)
+    private val lift = Lift(coroutineScope, elbow)
     private val mast = Mast(coroutineScope, lift)
 
-    private val basement = Basement(mast)
+    private val base = Base(mast)
 
-    private val partsById = generateSequence<RoboPart>(basement) { it.nextPart }.associateBy { it.id }
+    private val partsById = generateSequence<RoboPart>(base) { it.nextPart }.associateBy { it.id }
 
-    private fun calcState(): ArmState = ArmState(parts = basement.toArmParts())
+    private fun calcState(): ArmState = ArmState(parts = base.toArmParts())
 
     private val _armStateFlow = MutableStateFlow(calcState())
     val armStateFlow: StateFlow<ArmState> = _armStateFlow.asStateFlow()
@@ -41,9 +41,9 @@ class RoboArmSimulator(private val coroutineScope: CoroutineScope) {
             combine(
                 lift.height,
                 mast.angleDegrees,
-                cran.angleDegrees,
-                gripper.angleDegrees,
-                hand.opening,
+                elbow.angleDegrees,
+                wrist.angleDegrees,
+                gripperJaw.opening,
             ) { _, _, _, _, _ ->
                 calcState()
             }.collect {
@@ -65,18 +65,18 @@ class RoboArmSimulator(private val coroutineScope: CoroutineScope) {
         val target = command.target
         val height = lift.driveSpecification.motion
         // The command specifies the gripper pivot in world coordinates, not lift travel.
-        val heightOffset = basement.localPosition.z + mast.localPosition.z +
-            cran.localPosition.z + gripper.localPosition.z + hand.localPosition.z
+        val heightOffset = base.localPosition.z + mast.localPosition.z +
+            elbow.localPosition.z + wrist.localPosition.z + gripperJaw.localPosition.z
         val liftHeight = target.z - heightOffset
         if (!liftHeight.isFinite() || liftHeight < height.minValue - 1e-9 ||
             liftHeight > height.maxValue + 1e-9) return false
         val angles = solveInverseKinematics(
-            target, cran.localPosition.x, gripper.localPosition.x,
-            mast.driveSpecification.motion, cran.driveSpecification.motion,
-            mast.angleDegrees.value, cran.angleDegrees.value,
+            target, elbow.localPosition.x, wrist.localPosition.x,
+            mast.driveSpecification.motion, elbow.driveSpecification.motion,
+            mast.angleDegrees.value, elbow.angleDegrees.value,
         ) ?: return false
         mast.moveToAngle(angles.mast)
-        cran.moveToAngle(angles.cran)
+        elbow.moveToAngle(angles.elbow)
         lift.setHeight(liftHeight.coerceIn(height.range))
         _armStateFlow.value = calcState()
         return true

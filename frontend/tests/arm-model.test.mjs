@@ -29,20 +29,20 @@ test('wire validator requires finite absolute positions and Z angles', () => {
 
 test('world poses replace GLB positions without offsets, references or axis conversion', async () => {
     const scene = await loadModel();
-    const target = part('Gripper', { x: 5, y: 6, z: -7 });
-    const rig = prepareArmModel(scene.clone(true), ['Gripper']);
-    const scale = rig.model.getObjectByName('Gripper').scale.clone();
+    const target = part('Wrist', { x: 5, y: 6, z: -7 });
+    const rig = prepareArmModel(scene.clone(true), ['Wrist']);
+    const scale = rig.model.getObjectByName('Wrist').scale.clone();
     rig.apply([target]);
-    close(position(rig.model, 'Gripper'), new Vector3(5, 6, -7));
-    close(rig.model.getObjectByName('Gripper').scale, scale);
+    close(position(rig.model, 'Wrist'), new Vector3(5, 6, -7));
+    close(rig.model.getObjectByName('Wrist').scale, scale);
     rig.apply([target]);
-    close(position(rig.model, 'Gripper'), new Vector3(5, 6, -7));
-    assert.notDeepEqual(position(scene, 'Gripper').toArray(), [5, 6, -7]);
+    close(position(rig.model, 'Wrist'), new Vector3(5, 6, -7));
+    assert.notDeepEqual(position(scene, 'Wrist').toArray(), [5, 6, -7]);
 });
 
 test('rendering does not infer a robot hierarchy or move other nodes with a parent', async () => {
     const scene = await loadModel();
-    const nodes = ['Mast', 'Lift', 'Cran', 'Gripper', 'Hand'];
+    const nodes = ['Mast', 'Lift', 'Elbow', 'Wrist', 'GripperJaw'];
     const rig = prepareArmModel(scene, nodes);
     const state = nodes.map((name, i) => part(name, { x: i, y: 2, z: 3 }));
     rig.apply(state);
@@ -78,11 +78,11 @@ test('nested asset transforms do not override independent backend world poses', 
     parent.position.set(3, 4, 5);
     parent.scale.setScalar(2);
     scene.add(parent);
-    parent.attach(scene.getObjectByName('Hand'));
-    const rig = prepareArmModel(scene, ['Hand']);
-    rig.apply([part('Hand', { x: 0.1, y: 0.2, z: 0.3 })]);
-    close(position(scene, 'Hand'), new Vector3(0.1, 0.2, 0.3));
-    assert.equal(scene.getObjectByName('Hand').parent, scene);
+    parent.attach(scene.getObjectByName('GripperJaw'));
+    const rig = prepareArmModel(scene, ['GripperJaw']);
+    rig.apply([part('GripperJaw', { x: 0.1, y: 0.2, z: 0.3 })]);
+    close(position(scene, 'GripperJaw'), new Vector3(0.1, 0.2, 0.3));
+    assert.equal(scene.getObjectByName('GripperJaw').parent, scene);
 });
 
 test('toggle readings and targets never influence the rendered pose', async () => {
@@ -96,7 +96,7 @@ test('toggle readings and targets never influence the rendered pose', async () =
 
 test('unknown nodes are reported without blocking known parts', async () => {
     const scene = await loadModel();
-    const rig = prepareArmModel(scene, ['Hand', 'NewPart']);
+    const rig = prepareArmModel(scene, ['GripperJaw', 'NewPart']);
     assert.deepEqual(rig.missing, ['NewPart']);
-    assert.doesNotThrow(() => rig.apply([part('NewPart'), part('Hand')]));
+    assert.doesNotThrow(() => rig.apply([part('NewPart'), part('GripperJaw')]));
 });

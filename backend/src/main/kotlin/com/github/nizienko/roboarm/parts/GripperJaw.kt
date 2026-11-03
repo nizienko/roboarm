@@ -10,13 +10,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.UUID
 
-class Hand(scope: CoroutineScope) : RoboPart {
+class GripperJaw(scope: CoroutineScope) : RoboPart {
     override val id: String = UUID.randomUUID().toString()
     private val _opening = MutableStateFlow(0.0)
     val opening: StateFlow<Double> = _opening.asStateFlow()
 
     val driveSpecification = DriveSpecification(
-        name = "Hand Expand",
+        name = "Gripper opening",
         unit = "meters",
         motion = MoveEngineParameters(maxSpeed = 0.05, maxAcceleration = 0.1, minValue = 0.0, maxValue = 0.18),
     )
@@ -26,7 +26,7 @@ class Hand(scope: CoroutineScope) : RoboPart {
     override val toggles: List<ArmPartToggle>
         get() = listOf(driveSpecification.toggle(_opening.value, openingEngine.target.value))
 
-    override val modelNode: String = "Hand"
+    override val modelNode: String = "GripperJaw"
     override val nextPart: RoboPart? = null
     override val localPosition: Point3D
         get() = Point3D(-0.04 + opening.value, 0.0, -0.3)

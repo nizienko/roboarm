@@ -5,40 +5,37 @@ import com.github.nizienko.roboarm.data.ArmCommand
 import com.github.nizienko.roboarm.data.ArmPartToggle
 import com.github.nizienko.roboarm.data.Point3D
 import kotlinx.coroutines.CoroutineScope
-import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.UUID
 
-class Cran(scope: CoroutineScope, override val nextPart: RoboPart? = null): RoboPart {
+class Wrist(scope: CoroutineScope, override val nextPart: RoboPart? = null) : RoboPart {
     override val id: String = UUID.randomUUID().toString()
 
     override fun applyCommand(command: ArmCommand) {
-        moveToAngle(command.value)
+        when (command.toggleName) {
+            driveSpecification.name -> rotationEngine.moveTo(command.value)
+        }
     }
-
     private val _angle = MutableStateFlow(0.0)
     val angleDegrees: StateFlow<Double> = _angle.asStateFlow()
 
     val driveSpecification = DriveSpecification(
-        name = "Cran Rotation",
+        name = "Wrist rotation",
         unit = "degrees",
-        motion = MoveEngineParameters(maxSpeed = 45.0, maxAcceleration = 25.0, minValue = -160.0, maxValue = 160.0),
+        motion = MoveEngineParameters(maxSpeed = 120.0, maxAcceleration = 60.0, minValue = 0.0, maxValue = 360.0, circled = true),
     )
 
-    private val moveEngine = MoveEngine(scope, _angle, driveSpecification.motion)
+    private val rotationEngine = MoveEngine(scope, _angle, driveSpecification.motion)
 
-    fun moveToAngle(degrees: Double) {
-        moveEngine.moveTo(degrees)
-    }
-
-    override val modelNode: String = "Cran"
-    override val localPosition: Point3D
-        get() = Point3D(1.0, 0.0, -0.25)
-    override val localRotationDegreesZ: Double
-        get() = _angle.value
 
     override val toggles: List<ArmPartToggle>
-        get() = listOf(driveSpecification.toggle(_angle.value, moveEngine.target.value))
+        get() = listOf(driveSpecification.toggle(_angle.value, rotationEngine.target.value))
 
+
+    override val localPosition: Point3D = Point3D(1.0, 0.0, -0.05)
+    override val localRotationDegreesZ: Double
+        get() = _angle.value
+    override val modelNode: String = "Wrist"
 }
