@@ -12,7 +12,11 @@ export function IKArmControls({ state, disabled, commandError, onCommand }: IKAr
     const [target, setTarget] = useState<Point3D>({ x: 2, y: 0, z: 1.5 });
     const height = state?.parts.find((part) => part.modelNode === "Lift")?.toggles
         .find((toggle) => toggle.name === "Height");
-    const controlsDisabled = disabled || !height;
+    const hand = state?.parts.find((part) => part.modelNode === "Hand");
+    const heightOffset = height && hand ? hand.position.y - height.value : undefined;
+    const controlsDisabled = disabled || heightOffset === undefined;
+    const minZ = height && heightOffset !== undefined ? Number((height.minValue + heightOffset).toFixed(10)) : undefined;
+    const maxZ = height && heightOffset !== undefined ? Number((height.maxValue + heightOffset).toFixed(10)) : undefined;
 
     return (
         <form className="arm-target" onSubmit={(event) => {
@@ -34,8 +38,8 @@ export function IKArmControls({ state, disabled, commandError, onCommand }: IKAr
                                 id={`arm-target-${axis}`}
                                 type="range"
                                 step="any"
-                                min={axis === "z" ? height?.minValue : -2}
-                                max={axis === "z" ? height?.maxValue : 2}
+                                min={axis === "z" ? minZ : -2}
+                                max={axis === "z" ? maxZ : 2}
                                 value={target[axis]}
                                 onChange={(event) => setTarget({ ...target, [axis]: event.currentTarget.valueAsNumber })}
                             />

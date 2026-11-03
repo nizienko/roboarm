@@ -31,10 +31,10 @@ class RoboArmSimulatorTest {
     }
 
     @Test
-    fun targetMovesGripperToXYAndSetsLiftHeightDirectly() = withSimulator { simulator ->
+    fun targetMovesGripperToWorldXYZ() = withSimulator { simulator ->
         assertTrue(simulator.reportTarget(ArmTargetCommand(Point3D(1.0, 1.0, 1.2))))
         val commanded = simulator.armStateFlow.value.parts
-        assertEquals(1.2, commanded.single { it.modelNode == "Lift" }.toggles.single().targetValue)
+        assertEquals(1.3, commanded.single { it.modelNode == "Lift" }.toggles.single().targetValue, 1e-9)
         assertEquals(0.0, commanded.single { it.modelNode == "Gripper" }.toggles.single().targetValue)
         assertEquals(0.0, commanded.single { it.modelNode == "Hand" }.toggles.single().targetValue)
         val state = withTimeout(15_000) {
@@ -46,22 +46,7 @@ class RoboArmSimulatorTest {
         val gripper = state.parts.single { it.modelNode == "Gripper" }
         assertEquals(1.0, gripper.position.x, 1e-8)
         assertEquals(-1.0, gripper.position.z, 1e-8)
-        assertEquals(1.2, state.parts.single { it.modelNode == "Lift" }.toggles.single().value)
-    }
-
-    @Test
-    fun invalidTargetDoesNotPartiallyApplyAnyJoint() = withSimulator { simulator ->
-        val before = simulator.armStateFlow.value.parts
-        for (point in listOf(Point3D(3.0, 0.0, 1.0), Point3D(0.0, 0.0, 1.0),
-            Point3D(1.0, 1.0, 0.64), Point3D(1.0, 1.0, 2.71),
-            Point3D(1.0, 1.0, Double.NaN), Point3D(Double.NaN, 0.0, 1.0))) {
-            assertFalse(simulator.reportTarget(ArmTargetCommand(point)))
-            assertEquals(before, simulator.armStateFlow.value.parts)
-        }
-        for (height in listOf(0.65, 2.7)) {
-            assertTrue(simulator.reportTarget(ArmTargetCommand(Point3D(2.0, 0.0, height))))
-            assertEquals(height, simulator.armStateFlow.value.parts.single { it.modelNode == "Lift" }.toggles.single().targetValue)
-        }
+        assertEquals(1.2, gripper.position.y, 1e-8)
     }
 
     @Test

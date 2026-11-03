@@ -41,7 +41,7 @@ data class ArmCommand(val partId: String, val toggleName: String, val value: Dou
 @Serializable(with = ArmRequestSerializer::class)
 sealed interface ArmRequest
 
-/** X/Y: gripper pivot in backend meters (Z-up). Z: lift height, applied directly. */
+/** Gripper pivot world position in backend meters (Z-up). */
 @Serializable
 data class ArmTargetCommand(val target: Point3D) : ArmRequest
 

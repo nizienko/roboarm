@@ -21,7 +21,10 @@ registerHooks({
 const { IKArmControls } = await import('../src/arm/IKArmControls.tsx');
 const state = {
     time: 1,
-    parts: [{ modelNode: 'Lift', toggles: [{ name: 'Height', minValue: 0.65, maxValue: 2.7 }] }],
+    parts: [
+        { modelNode: 'Lift', toggles: [{ name: 'Height', value: 1.5, minValue: 0.65, maxValue: 2.7 }] },
+        { modelNode: 'Gripper', position: { x: 2, y: 1.4, z: 0 }, toggles: [] },
+    ],
 };
 const render = (props = {}) => renderToStaticMarkup(createElement(IKArmControls, {
     state, disabled: false, onCommand() {}, ...props,
@@ -36,9 +39,9 @@ test('IK controls stay disabled until lift limits arrive', () => {
     assert.match(render({ state: { time: 1, parts: [] } }), /<fieldset disabled="">/);
 });
 
-test('connected IK controls expose the received lift range and initial coordinates', () => {
+test('connected IK controls expose the world height range and initial coordinates', () => {
     const html = render();
     assert.doesNotMatch(html, /disabled=""/);
-    assert.match(html, /id="arm-target-z"[^>]*min="0.65"[^>]*max="2.7"[^>]*value="1.5"/);
+    assert.match(html, /id="arm-target-z"[^>]*min="0.55"[^>]*max="2.6"[^>]*value="1.5"/);
     assert.match(html, /x=2.00; y=0.00; z=1.50/);
 });

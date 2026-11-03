@@ -64,7 +64,12 @@ class RoboArmSimulator(private val coroutineScope: CoroutineScope) {
     fun reportTarget(command: ArmTargetCommand): Boolean {
         val target = command.target
         val height = lift.driveSpecification.motion
-        if (!target.z.isFinite() || target.z !in height.range) return false
+        // The command specifies the gripper pivot in world coordinates, not lift travel.
+        val heightOffset = basement.localPosition.z + mast.localPosition.z +
+            cran.localPosition.z + gripper.localPosition.z + hand.localPosition.z
+        val liftHeight = target.z - heightOffset
+        if (!liftHeight.isFinite() || liftHeight < height.minValue - 1e-9 ||
+            liftHeight > height.maxValue + 1e-9) return false
         val angles = solveInverseKinematics(
             target, cran.localPosition.x, gripper.localPosition.x,
             mast.driveSpecification.motion, cran.driveSpecification.motion,
@@ -72,7 +77,7 @@ class RoboArmSimulator(private val coroutineScope: CoroutineScope) {
         ) ?: return false
         mast.moveToAngle(angles.mast)
         cran.moveToAngle(angles.cran)
-        lift.setHeight(target.z)
+        lift.setHeight(liftHeight.coerceIn(height.range))
         _armStateFlow.value = calcState()
         return true
     }

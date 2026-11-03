@@ -1,35 +1,47 @@
 # Roboarm
 
-## WebSocket commands
+A robot arm simulator: Kotlin/Ktor backend, React/Three.js frontend.
+The backend handles motion, speed and acceleration limits, and inverse kinematics.
 
-Connect to `ws://localhost:6593/ws`. Existing joint commands remain supported:
+## Run
 
-```json
-{"partId":"<part id from telemetry>","toggleName":"Mast Rotation","value":90}
+With Docker and Docker Compose installed, run from this directory:
+
+```sh
+docker compose up --build
 ```
 
-Move to a target with inverse kinematics:
+Open http://localhost:8080. The backend uses `ws://localhost:6593/ws`, so open
+the page on the same computer that runs Docker. The first build takes a few minutes.
 
-```json
-{"target":{"x":1,"y":1,"z":1.5}}
+Stop with `Ctrl+C`, then `docker compose down` to remove the containers.
+If Compose is installed separately, use `docker-compose` instead of `docker compose`.
+
+## Controls
+
+Use the joint sliders to move individual axes, or set X/Y/Z and press **Send command**
+to move the gripper pivot to a point. Coordinates are in meters, with Z pointing up.
+The reachable horizontal radius is 1–2 m; the gripper height is 0.55–2.6 m.
+Unreachable targets are rejected. Drag the scene to orbit the camera; scroll to zoom.
+
+The arm reconnects automatically if the backend restarts. All browser tabs control
+the same arm. Motion has no collision detection, and the gripper path need not be straight.
+
+## Local development
+
+Requires JDK 21 and Node.js 24+.
+
+```sh
+cd backend
+./gradlew run
 ```
 
-Coordinates are meters in the backend's Z-up coordinate system. X/Y specify the
-Gripper pivot (the end of the two 1 m horizontal links). Z sets the Lift Height
-directly, from 0.65 to 2.7 m; it is not the absolute world height of the gripper.
-Telemetry uses scene coordinates `(x, z, -y)`.
+In another terminal:
 
-The backend solves both elbow configurations, observes the Mast (0–360°) and
-Cran (−120–120°) limits, and chooses the solution with the smallest sum of angle
-changes from the current pose. The reachable X/Y radius is 1–2 m. Gripper rotation
-and hand opening keep their current targets. Motion uses the existing joint speed
-and acceleration limits; the tip's path is not constrained to a straight line.
-
-Unreachable targets or invalid heights leave all targets unchanged and return:
-
-```json
-{"error":"Target is unreachable or outside joint limits"}
+```sh
+cd frontend
+npm ci
+npm run dev
 ```
 
-The frontend's **Target point** form sends this command and displays rejection
-messages. Manual joint sliders remain available.
+Tests: `./gradlew test` in `backend`; `npm test` and `npm run lint` in `frontend`.

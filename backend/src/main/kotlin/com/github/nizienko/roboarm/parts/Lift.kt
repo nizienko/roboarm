@@ -26,7 +26,7 @@ class Lift(
     val driveSpecification = DriveSpecification(
         name = "Height",
         unit = "meters",
-        motion = MoveEngineParameters(maxSpeed = 0.3, maxAcceleration = 0.5, minValue = 0.65, maxValue = 2.7),
+        motion = MoveEngineParameters(maxSpeed = 0.3, maxAcceleration = 0.5, minValue = 0.45, maxValue = 2.7),
     )
 
     private val moveEngine = MoveEngine(scope, _height, driveSpecification.motion)

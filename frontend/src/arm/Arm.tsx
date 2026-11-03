@@ -4,6 +4,7 @@ import { ArmControls } from "./ArmControls.tsx";
 import { isArmState } from "./ArmState.ts";
 import type { ArmRequest, ArmState } from "./ArmState.ts";
 import "./Arm.css";
+import { connectArmSocket } from "./ArmSocket";
 import {IKArmControls} from "./IKArmControls.tsx";
 
 function Arm() {
@@ -14,12 +15,6 @@ function Arm() {
     const connected = connectionState === "Connected";
 
     useEffect(() => {
-        const websocket = new WebSocket("ws://localhost:6593/ws");
-        socketRef.current = websocket;
-
-        const onOpen = () => setConnectionState("Connected");
-        const onClose = () => setConnectionState("Connection closed");
-        const onError = () => setConnectionState("Error");
         const onMessage = (event: MessageEvent<string>) => {
             try {
                 const state: unknown = JSON.parse(event.data);
@@ -36,18 +31,18 @@ function Arm() {
             }
         };
 
-        websocket.addEventListener("open", onOpen);
-        websocket.addEventListener("close", onClose);
-        websocket.addEventListener("message", onMessage);
-        websocket.addEventListener("error", onError);
-        return () => {
-            socketRef.current = null;
-            websocket.removeEventListener("open", onOpen);
-            websocket.removeEventListener("close", onClose);
-            websocket.removeEventListener("message", onMessage);
-            websocket.removeEventListener("error", onError);
-            websocket.close();
-        };
+        return connectArmSocket("ws://localhost:6593/ws", {
+            onSocket: (socket) => { socketRef.current = socket; },
+            onOpen: () => {
+                setCommandError("");
+                setConnectionState("Connected");
+            },
+            onClose: () => {
+                setArmState(undefined);
+                setConnectionState("Connection closed. Reconnecting…");
+            },
+            onMessage,
+        });
     }, []);
 
     function sendCommand(command: ArmRequest) {

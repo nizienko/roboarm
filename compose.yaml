@@ -1,0 +1,14 @@
+services:
+  backend:
+    image: roboarm-backend:local
+    build: ./backend
+    ports:
+      - "127.0.0.1:6593:6593"
+
+  frontend:
+    image: roboarm-frontend:local
+    build: ./frontend
+    ports:
+      - "127.0.0.1:8080:80"
+    depends_on:
+      - backend
