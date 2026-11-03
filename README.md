@@ -3,6 +3,10 @@
 A robot arm simulator: Kotlin/Ktor backend, React/Three.js frontend.
 The backend handles motion, speed and acceleration limits, and inverse kinematics.
 
+## Video
+
+[![Watch the Roboarm demo on YouTube](https://img.youtube.com/vi/GP640ZPVUUQ/hqdefault.jpg)](https://youtu.be/GP640ZPVUUQ)
+
 ## Run
 
 With Docker and Docker Compose installed, run from this directory:
