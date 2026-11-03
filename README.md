@@ -21,7 +21,7 @@ If Compose is installed separately, use `docker-compose` instead of `docker comp
 
 Use the joint sliders to move individual axes, or set X/Y/Z and press **Send command**
 to move the gripper pivot to a point. Coordinates are in meters, with Z pointing up.
-The reachable horizontal radius is 1–2 m; the gripper height is 0.55–2.6 m.
+The reachable horizontal radius is 1–2 m; the gripper hand height is 0.05–2.30 m.
 Unreachable targets are rejected. Drag the scene to orbit the camera; scroll to zoom.
 
 The arm reconnects automatically if the backend restarts. All browser tabs control
