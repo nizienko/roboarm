@@ -23,7 +23,7 @@ class Cran(scope: CoroutineScope, override val nextPart: RoboPart? = null): Robo
     val driveSpecification = DriveSpecification(
         name = "Cran Rotation",
         unit = "degrees",
-        motion = MoveEngineParameters(maxSpeed = 45.0, maxAcceleration = 25.0, minValue = -120.0, maxValue = 120.0),
+        motion = MoveEngineParameters(maxSpeed = 45.0, maxAcceleration = 25.0, minValue = -160.0, maxValue = 160.0),
     )
 
     private val moveEngine = MoveEngine(scope, _angle, driveSpecification.motion)

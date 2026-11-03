@@ -15,10 +15,12 @@ import io.ktor.server.websocket.receiveDeserialized
 import io.ktor.server.websocket.sendSerialized
 import io.ktor.server.websocket.webSocket
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration.Companion.microseconds
 
 
 fun main() {
@@ -33,9 +35,9 @@ fun main() {
         routing {
             webSocket("/ws") {
                 val sendJob = launch {
-                    sendSerialized(simulator.armStateFlow.value)
                     simulator.armStateFlow.collect { message ->
                         sendSerialized(message)
+                        delay(30.microseconds)
                     }
                 }
                 try {
