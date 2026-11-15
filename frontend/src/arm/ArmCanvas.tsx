@@ -2,14 +2,17 @@ import { Component, Suspense, useLayoutEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, useGLTF } from '@react-three/drei';
-import type { ArmState } from './ArmState';
+import type { ArmState, Point3D } from './ArmState';
 import { prepareArmModel } from './ArmModel';
+import { Ground } from './Ground';
+import { IKTargetCursor } from './IKTargetCursor';
 
 interface ArmCanvasProps {
     state?: ArmState;
+    target: Point3D;
 }
 
-function RobotScene({ state }: ArmCanvasProps) {
+function RobotScene({ state, target }: ArmCanvasProps) {
     const { scene } = useGLTF(`${import.meta.env.BASE_URL}models/roboarm.glb`);
     const rig = useMemo(() => prepareArmModel(scene.clone(true)), [scene]);
     const missing = state ? rig.missingNodes(state.parts) : [];
@@ -19,16 +22,14 @@ function RobotScene({ state }: ArmCanvasProps) {
     useLayoutEffect(() => () => rig.dispose(), [rig]);
 
     return <>
-        <Canvas camera={{ position: [3, 2.4, 5], fov: 45, near: 0.01, far: 100 }}>
+        <Canvas camera={{ position: [4, 3.5, 7], fov: 45, near: 0.01, far: 100 }}>
             <color attach="background" args={['#18202b']} />
             <ambientLight intensity={1.1} />
             <directionalLight position={[2, 6, 2]} intensity={2.7} />
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.001, 0]}>
-                <planeGeometry args={[10, 10]} />
-                <meshStandardMaterial color="#333333" roughness={1} />
-            </mesh>
+            <Ground />
             <primitive object={rig.model} visible={!!state} />
-            <OrbitControls makeDefault target={[0.5, 1.5, 0]} />
+            <IKTargetCursor target={target} />
+            <OrbitControls makeDefault target={[0, 1, 0]} />
         </Canvas>
         {missing.length > 0 && <p className="arm-scene-message" role="status">
             Missing model nodes: {missing.join(', ')}. Their motion cannot be displayed.
@@ -46,12 +47,12 @@ class ModelBoundary extends Component<{ children: ReactNode }, { failed: boolean
     }
 }
 
-export default function ArmCanvas({ state }: ArmCanvasProps) {
+export default function ArmCanvas({ state, target }: ArmCanvasProps) {
     return (
         <div className="arm-scene">
             <ModelBoundary>
                 <Suspense fallback={<p role="status">Loading model…</p>}>
-                    <RobotScene state={state} />
+                    <RobotScene state={state} target={target} />
                 </Suspense>
             </ModelBoundary>
         </div>

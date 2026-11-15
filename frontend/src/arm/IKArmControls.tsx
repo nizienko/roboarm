@@ -1,30 +1,28 @@
-import { useState } from "react";
-import type { ArmState, ArmTargetCommand, Point3D } from "./ArmState";
-import { clampTarget, getTargetBounds } from "./TargetBounds";
+import type { ArmTargetCommand, Point3D } from "./ArmState";
+import type { TargetBounds } from "./TargetBounds";
 
 interface IKArmControlsProps {
-    state?: ArmState;
+    target: Point3D;
+    bounds?: TargetBounds;
+    onTargetChange: (target: Point3D) => void;
     disabled: boolean;
     commandError?: string;
     onCommand: (command: ArmTargetCommand) => void;
 }
 
-export function IKArmControls({ state, disabled, commandError, onCommand }: IKArmControlsProps) {
-    const [target, setTarget] = useState<Point3D>({ x: 2, y: 0, z: 1.5 });
-    const bounds = getTargetBounds(state);
+export function IKArmControls({ target, bounds, onTargetChange, disabled, commandError, onCommand }: IKArmControlsProps) {
     const controlsDisabled = disabled || !bounds;
-    const boundedTarget = bounds ? clampTarget(target, bounds) : target;
 
     return (
         <form className="arm-target" onSubmit={(event) => {
             event.preventDefault();
-            if (!controlsDisabled && Object.values(boundedTarget).every(Number.isFinite)) {
-                onCommand({ target: boundedTarget });
+            if (!controlsDisabled && Object.values(target).every(Number.isFinite)) {
+                onCommand({ target });
             }
         }}>
             <h4>Inverse Kinematics — Wrist position</h4>
             <fieldset disabled={controlsDisabled}>
-                <p>x={boundedTarget.x.toFixed(2)}; y={boundedTarget.y.toFixed(2)}; z={boundedTarget.z.toFixed(2)}</p>
+                <p>x={target.x.toFixed(2)}; y={target.y.toFixed(2)}; z={target.z.toFixed(2)}</p>
                 <button type="submit">Send command</button>
                 <div role="alert">{commandError}</div>
                 <div className="arm-target-coordinates">
@@ -37,8 +35,8 @@ export function IKArmControls({ state, disabled, commandError, onCommand }: IKAr
                                 step="any"
                                 min={bounds?.[axis].min}
                                 max={bounds?.[axis].max}
-                                value={boundedTarget[axis]}
-                                onChange={(event) => setTarget({ ...boundedTarget, [axis]: event.currentTarget.valueAsNumber })}
+                                value={target[axis]}
+                                onChange={(event) => onTargetChange({ ...target, [axis]: event.currentTarget.valueAsNumber })}
                             />
                         </label>
                     ))}

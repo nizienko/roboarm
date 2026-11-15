@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import ArmCanvas from "./ArmCanvas.tsx";
 import { ArmControls } from "./ArmControls.tsx";
 import { isArmState } from "./ArmState.ts";
-import type { ArmRequest, ArmState } from "./ArmState.ts";
+import type { ArmRequest, ArmState, Point3D } from "./ArmState.ts";
+import { clampTarget, getTargetBounds } from "./TargetBounds.ts";
 import "./Arm.css";
 import { connectArmSocket } from "./ArmSocket";
 import {IKArmControls} from "./IKArmControls.tsx";
@@ -11,8 +12,11 @@ function Arm() {
     const [connectionState, setConnectionState] = useState("Connecting");
     const [armState, setArmState] = useState<ArmState>();
     const [commandError, setCommandError] = useState("");
+    const [ikTarget, setIkTarget] = useState<Point3D>({ x: 2, y: 0, z: 1.5 });
     const socketRef = useRef<WebSocket | null>(null);
     const connected = connectionState === "Connected";
+    const targetBounds = getTargetBounds(armState);
+    const target = targetBounds ? clampTarget(ikTarget, targetBounds) : ikTarget;
 
     useEffect(() => {
         const onMessage = (event: MessageEvent<string>) => {
@@ -63,8 +67,9 @@ function Arm() {
                 <ArmControls state={armState} disabled={!connected} onCommand={sendCommand} />
                 <section>
                     <p>{connectionState}</p>
-                    <ArmCanvas state={armState} />
-                    <IKArmControls state={armState} commandError={commandError} disabled={!connected} onCommand={sendCommand} />
+                    <ArmCanvas state={armState} target={target} />
+                    <IKArmControls target={target} bounds={targetBounds} onTargetChange={setIkTarget}
+                        commandError={commandError} disabled={!connected} onCommand={sendCommand} />
                 </section>
             </div>
         </section>
