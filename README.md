@@ -5,7 +5,7 @@ The backend handles motion, speed and acceleration limits, and inverse kinematic
 
 ## Video
 
-[![Watch the Roboarm demo on YouTube](https://img.youtube.com/vi/GP640ZPVUUQ/hqdefault.jpg)](https://youtu.be/GP640ZPVUUQ)
+[![Watch the Roboarm demo on YouTube](https://img.youtube.com/vi/0KyGskisj0o/hqdefault.jpg)](https://youtu.be/0KyGskisj0o)
 
 ## Run
 
