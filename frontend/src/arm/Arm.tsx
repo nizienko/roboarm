@@ -31,7 +31,7 @@ function Arm() {
             }
         };
 
-        return connectArmSocket("ws://localhost:6593/ws", {
+        return connectArmSocket(import.meta.env.VITE_BACKEND_URL || "ws://localhost:6593/ws", {
             onSocket: (socket) => { socketRef.current = socket; },
             onOpen: () => {
                 setCommandError("");

@@ -19,13 +19,16 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 
-class RoboArmSimulator(private val coroutineScope: CoroutineScope) {
+class RoboArmSimulator(
+    coroutineScope: CoroutineScope,
+    specification: ArmSpecification = DefaultArmSpecification.value,
+) {
 
-    private val gripperJaw = GripperJaw(coroutineScope)
-    private val wrist = Wrist(coroutineScope, gripperJaw)
-    private val elbow = Elbow(coroutineScope, wrist)
-    private val lift = Lift(coroutineScope, elbow)
-    private val mast = Mast(coroutineScope, lift)
+    private val gripperJaw = GripperJaw(coroutineScope, specification.gripperJaw, specification.geometry)
+    private val wrist = Wrist(coroutineScope, gripperJaw, specification.wrist, specification.geometry)
+    private val elbow = Elbow(coroutineScope, wrist, specification.elbow, specification.geometry)
+    private val lift = Lift(coroutineScope, elbow, specification.lift, specification.geometry)
+    private val mast = Mast(coroutineScope, lift, specification.mast, specification.geometry)
 
     private val base = Base(mast)
 
@@ -64,9 +67,9 @@ class RoboArmSimulator(private val coroutineScope: CoroutineScope) {
     fun reportTarget(command: ArmTargetCommand): Boolean {
         val target = command.target
         val height = lift.driveSpecification.motion
-        // The command specifies the gripper pivot in world coordinates, not lift travel.
+        // Target the wrist axis; jaw opening and wrist rotation do not affect it.
         val heightOffset = base.localPosition.z + mast.localPosition.z +
-            elbow.localPosition.z + wrist.localPosition.z + gripperJaw.localPosition.z
+            elbow.localPosition.z + wrist.localPosition.z
         val liftHeight = target.z - heightOffset
         if (!liftHeight.isFinite() || liftHeight < height.minValue - 1e-9 ||
             liftHeight > height.maxValue + 1e-9) return false
@@ -91,6 +94,8 @@ interface RoboPart {
     /** Rotation relative to the parent around local Z, in degrees. */
     val localRotationDegreesZ: Double
     val modelNode: String
+    val beam: BeamDimensions?
+        get() = null
     val toggles: List<ArmPartToggle>
         get() = emptyList()
     val nextPart: RoboPart?

@@ -1,5 +1,6 @@
 package com.github.nizienko.roboarm.data
 
+import com.github.nizienko.roboarm.BeamDimensions
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.json.JsonContentPolymorphicSerializer
@@ -27,6 +28,7 @@ data class ArmPart(
     val position: Point3D,
     val rotationDegreesZ: Double,
     val toggles: List<ArmPartToggle>,
+    val beam: BeamDimensions? = null,
 )
 
 @Serializable
@@ -41,7 +43,7 @@ data class ArmCommand(val partId: String, val toggleName: String, val value: Dou
 @Serializable(with = ArmRequestSerializer::class)
 sealed interface ArmRequest
 
-/** Gripper pivot world position in backend meters (Z-up). */
+/** Wrist axis world position in backend meters (Z-up). */
 @Serializable
 data class ArmTargetCommand(val target: Point3D) : ArmRequest
 

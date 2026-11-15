@@ -1,43 +1,34 @@
 package com.github.nizienko.roboarm.parts
 
+import com.github.nizienko.roboarm.ArmGeometrySpecification
+import com.github.nizienko.roboarm.DefaultArmSpecification
 import com.github.nizienko.roboarm.RoboPart
 import com.github.nizienko.roboarm.data.ArmCommand
 import com.github.nizienko.roboarm.data.ArmPartToggle
 import com.github.nizienko.roboarm.data.Point3D
 import kotlinx.coroutines.CoroutineScope
 import java.util.UUID
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 
-class Mast(scope: CoroutineScope, override val nextPart: RoboPart? = null): RoboPart {
+class Mast(
+    scope: CoroutineScope,
+    override val nextPart: RoboPart? = null,
+    val driveSpecification: DriveSpecification = DefaultArmSpecification.value.mast,
+    geometry: ArmGeometrySpecification = DefaultArmSpecification.value.geometry,
+) : RoboPart {
     override val id: String = UUID.randomUUID().toString()
 
-    override fun applyCommand(command: ArmCommand) {
-        moveToAngle(command.value)
-    }
+    private val drive = Drive(scope, driveSpecification)
+    val angleDegrees = drive.position
 
-    private val _angle = MutableStateFlow(0.0)
-    val angleDegrees: StateFlow<Double> = _angle.asStateFlow()
-
-    val driveSpecification = DriveSpecification(
-        name = "Mast Rotation",
-        unit = "degrees",
-        motion = MoveEngineParameters(maxSpeed = 45.0, maxAcceleration = 25.0, minValue = 0.0, maxValue = 360.0, circled = true),
-    )
-
-    private val moveEngine = MoveEngine(scope, _angle, driveSpecification.motion)
-
-
-    fun moveToAngle(degrees: Double) {
-        moveEngine.moveTo(degrees)
-    }
+    fun moveToAngle(degrees: Double) = drive.moveTo(degrees)
 
     override val modelNode: String = "Mast"
     override val toggles: List<ArmPartToggle>
-        get() = listOf(driveSpecification.toggle(_angle.value, moveEngine.target.value))
+        get() = listOf(drive.toggle)
 
-    override val localPosition: Point3D = Point3D(0.0, 0.0, 0.2)
+    override val localPosition: Point3D = geometry.mastOffset
     override val localRotationDegreesZ: Double
-        get() = _angle.value
+        get() = angleDegrees.value
+
+    override fun applyCommand(command: ArmCommand) = drive.moveTo(command.value)
 }

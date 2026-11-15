@@ -4,11 +4,19 @@ export interface Point3D {
     z: number;
 }
 
+/** Meters. Length is measured between joint axes. */
+export interface BeamDimensions {
+    length: number;
+    width: number;
+    height: number;
+}
+
 export interface ArmPart {
     id: string;
     modelNode: string;
     position: Point3D;
     rotationDegreesZ: number;
+    beam?: BeamDimensions | null;
     toggles: {
         name: string;
         value: number;
@@ -48,6 +56,11 @@ function isPoint(value: unknown): value is Point3D {
     return isRecord(value) && [value.x, value.y, value.z].every(isFiniteNumber);
 }
 
+function isBeamDimensions(value: unknown): value is BeamDimensions {
+    return isRecord(value) && [value.length, value.width, value.height]
+        .every(dimension => isFiniteNumber(dimension) && dimension > 0);
+}
+
 export function isArmState(value: unknown): value is ArmState {
     return isRecord(value)
         && typeof value.time === 'number' && Number.isSafeInteger(value.time)
@@ -56,6 +69,7 @@ export function isArmState(value: unknown): value is ArmState {
             && typeof part.id === 'string'
             && typeof part.modelNode === 'string' && part.modelNode.length > 0
             && isPoint(part.position) && isFiniteNumber(part.rotationDegreesZ)
+            && (part.beam === undefined || part.beam === null || isBeamDimensions(part.beam))
             && Array.isArray(part.toggles)
             && part.toggles.every((toggle: unknown) => isRecord(toggle)
                 && typeof toggle.name === 'string'

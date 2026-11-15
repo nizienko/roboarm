@@ -20,7 +20,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlin.coroutines.cancellation.CancellationException
-import kotlin.time.Duration.Companion.microseconds
+import kotlin.time.Duration.Companion.milliseconds
 
 
 fun main() {
@@ -37,7 +37,7 @@ fun main() {
                 val sendJob = launch {
                     simulator.armStateFlow.collect { message ->
                         sendSerialized(message)
-                        delay(30.microseconds)
+                        delay(30.milliseconds)
                     }
                 }
                 try {

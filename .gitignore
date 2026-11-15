@@ -2,3 +2,5 @@
 /.idea/
 /backend/.gradle/
 /backend/.kotlin/
+.DS_Store
+*.blend[0-9]*

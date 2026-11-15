@@ -18,6 +18,7 @@ internal fun RoboPart.toArmParts(): List<ArmPart> = buildList {
             position = Point3D(worldPosition.x, worldPosition.z, -worldPosition.y),
             rotationDegreesZ = worldRotationDegreesZ,
             toggles = current.toggles,
+            beam = current.beam,
         ))
         part = current.nextPart
     }

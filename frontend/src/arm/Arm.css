@@ -17,3 +17,20 @@
         grid-template-columns: minmax(0, 1fr);
     }
 }
+
+.arm-scene {
+    position: relative;
+    width: 100%;
+    height: 600px;
+}
+
+.arm-scene-message {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 12px;
+    color: #ffd992;
+    background: #18202bcc;
+    pointer-events: none;
+}

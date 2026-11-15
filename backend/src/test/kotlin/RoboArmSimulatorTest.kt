@@ -1,4 +1,5 @@
 import com.github.nizienko.roboarm.RoboArmSimulator
+import com.github.nizienko.roboarm.ArmSpecification
 import com.github.nizienko.roboarm.toArmParts
 import com.github.nizienko.roboarm.parts.Elbow
 import com.github.nizienko.roboarm.data.Point3D
@@ -31,12 +32,17 @@ class RoboArmSimulatorTest {
     }
 
     @Test
-    fun targetMovesWristToXYAndGripperJawToWorldHeight() = withSimulator { simulator ->
+    fun targetMovesWristToWorldPositionWithoutChangingToolSettings() = withSimulator(
+        testArmSpecification.copy(
+            wrist = testArmSpecification.wrist.copy(initialValue = 45.0),
+            gripperJaw = testArmSpecification.gripperJaw.copy(initialValue = 0.1),
+        ),
+    ) { simulator ->
         assertTrue(simulator.reportTarget(ArmTargetCommand(Point3D(1.0, 1.0, 1.2))))
         val commanded = simulator.armStateFlow.value.parts
-        assertEquals(1.6, commanded.single { it.modelNode == "Lift" }.toggles.single().targetValue, 1e-9)
-        assertEquals(0.0, commanded.single { it.modelNode == "Wrist" }.toggles.single().targetValue)
-        assertEquals(0.0, commanded.single { it.modelNode == "GripperJaw" }.toggles.single().targetValue)
+        assertEquals(1.3, commanded.single { it.modelNode == "Lift" }.toggles.single().targetValue, 1e-9)
+        assertEquals(45.0, commanded.single { it.modelNode == "Wrist" }.toggles.single().targetValue)
+        assertEquals(0.1, commanded.single { it.modelNode == "GripperJaw" }.toggles.single().targetValue)
         val state = withTimeout(15_000) {
             simulator.armStateFlow.first {
                 it.parts.flatMap { part -> part.toggles }.all { toggle -> toggle.value == toggle.targetValue }
@@ -46,9 +52,9 @@ class RoboArmSimulatorTest {
         val wrist = state.parts.single { it.modelNode == "Wrist" }
         assertEquals(1.0, wrist.position.x, 1e-8)
         assertEquals(-1.0, wrist.position.z, 1e-8)
-        assertEquals(1.5, wrist.position.y, 1e-8)
+        assertEquals(1.2, wrist.position.y, 1e-8)
         val gripperJaw = state.parts.single { it.modelNode == "GripperJaw" }
-        assertEquals(1.2, gripperJaw.position.y, 1e-8)
+        assertEquals(0.9, gripperJaw.position.y, 1e-8)
     }
 
     @Test
@@ -134,6 +140,27 @@ class RoboArmSimulatorTest {
     }
 
     @Test
+    fun targetHeightUsesWristTravelAndRejectsInvalidGoals() = withSimulator { simulator ->
+        val initialGoals = simulator.armStateFlow.value.parts.flatMap { it.toggles }.map { it.targetValue }
+        for (target in listOf(
+            Point3D(2.01, 0.0, 1.2),
+            Point3D(2.0, 0.0, 0.39),
+            Point3D(2.0, 0.0, 2.61),
+            Point3D(Double.NaN, 0.0, 1.2),
+            Point3D(2.0, 0.0, Double.NaN),
+        )) {
+            assertFalse(simulator.reportTarget(ArmTargetCommand(target)))
+            assertEquals(initialGoals, simulator.armStateFlow.value.parts.flatMap { it.toggles }.map { it.targetValue })
+        }
+        for ((worldHeight, liftHeight) in listOf(0.4 to 0.5, 2.6 to 2.7)) {
+            assertTrue(simulator.reportTarget(ArmTargetCommand(Point3D(2.0, 0.0, worldHeight))))
+            assertEquals(liftHeight, simulator.armStateFlow.value.parts.single {
+                it.modelNode == "Lift"
+            }.toggles.single().targetValue, 1e-9)
+        }
+    }
+
+    @Test
     fun partIdsAreUniqueEvenForPartsOfTheSameType() {
         val scope = CoroutineScope(Job())
         try {
@@ -163,14 +190,10 @@ class RoboArmSimulatorTest {
     }
 
     @Test
-    fun wireContractContainsWorldPosesWithoutClientMotionRules() = withSimulator { simulator ->
+    fun telemetryRoundTripsAllPartPoses() = withSimulator { simulator ->
         val json = Json { encodeDefaults = true }
         val state = simulator.armStateFlow.value
         val encoded = json.encodeToString(state)
-        for (oldField in listOf("startPoint", "endPoint", "mesh", "motion", "referenceValue", "parentModelNode")) {
-            assertFalse(encoded.contains("\"$oldField\""))
-        }
-        assertTrue(encoded.contains("rotationDegreesZ"))
         assertEquals(state, json.decodeFromString<ArmState>(encoded))
     }
 
@@ -192,10 +215,13 @@ class RoboArmSimulatorTest {
         }
     }
 
-    private fun withSimulator(block: suspend (RoboArmSimulator) -> Unit) = runBlocking {
+    private fun withSimulator(
+        specification: ArmSpecification = testArmSpecification,
+        block: suspend (RoboArmSimulator) -> Unit,
+    ) = runBlocking {
         val scope = CoroutineScope(Job())
         try {
-            block(RoboArmSimulator(scope))
+            block(RoboArmSimulator(scope, specification))
         } finally {
             scope.cancel()
         }

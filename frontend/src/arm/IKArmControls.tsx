@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { ArmState, ArmTargetCommand, Point3D } from "./ArmState";
+import { clampTarget, getTargetBounds } from "./TargetBounds";
 
 interface IKArmControlsProps {
     state?: ArmState;
@@ -10,24 +11,20 @@ interface IKArmControlsProps {
 
 export function IKArmControls({ state, disabled, commandError, onCommand }: IKArmControlsProps) {
     const [target, setTarget] = useState<Point3D>({ x: 2, y: 0, z: 1.5 });
-    const height = state?.parts.find((part) => part.modelNode === "Lift")?.toggles
-        .find((toggle) => toggle.name === "Height");
-    const gripperJaw = state?.parts.find((part) => part.modelNode === "GripperJaw");
-    const heightOffset = height && gripperJaw ? gripperJaw.position.y - height.value : undefined;
-    const controlsDisabled = disabled || heightOffset === undefined;
-    const minZ = height && heightOffset !== undefined ? Number((height.minValue + heightOffset).toFixed(10)) : undefined;
-    const maxZ = height && heightOffset !== undefined ? Number((height.maxValue + heightOffset).toFixed(10)) : undefined;
+    const bounds = getTargetBounds(state);
+    const controlsDisabled = disabled || !bounds;
+    const boundedTarget = bounds ? clampTarget(target, bounds) : target;
 
     return (
         <form className="arm-target" onSubmit={(event) => {
             event.preventDefault();
-            if (!controlsDisabled && Object.values(target).every(Number.isFinite)) {
-                onCommand({ target });
+            if (!controlsDisabled && Object.values(boundedTarget).every(Number.isFinite)) {
+                onCommand({ target: boundedTarget });
             }
         }}>
-            <h4>Inverse Kinematics</h4>
+            <h4>Inverse Kinematics — Wrist position</h4>
             <fieldset disabled={controlsDisabled}>
-                <p>x={target.x.toFixed(2)}; y={target.y.toFixed(2)}; z={target.z.toFixed(2)}</p>
+                <p>x={boundedTarget.x.toFixed(2)}; y={boundedTarget.y.toFixed(2)}; z={boundedTarget.z.toFixed(2)}</p>
                 <button type="submit">Send command</button>
                 <div role="alert">{commandError}</div>
                 <div className="arm-target-coordinates">
@@ -38,10 +35,10 @@ export function IKArmControls({ state, disabled, commandError, onCommand }: IKAr
                                 id={`arm-target-${axis}`}
                                 type="range"
                                 step="any"
-                                min={axis === "z" ? minZ : -2}
-                                max={axis === "z" ? maxZ : 2}
-                                value={target[axis]}
-                                onChange={(event) => setTarget({ ...target, [axis]: event.currentTarget.valueAsNumber })}
+                                min={bounds?.[axis].min}
+                                max={bounds?.[axis].max}
+                                value={boundedTarget[axis]}
+                                onChange={(event) => setTarget({ ...boundedTarget, [axis]: event.currentTarget.valueAsNumber })}
                             />
                         </label>
                     ))}
