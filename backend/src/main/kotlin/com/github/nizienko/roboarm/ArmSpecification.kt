@@ -50,11 +50,11 @@ data class ArmSpecification(
 object DefaultArmSpecification {
     val value = ArmSpecification(
         geometry = ArmGeometrySpecification(
-            upperArm = BeamDimensions(length = 1.0, width = 0.2, height = 0.2),
-            forearm = BeamDimensions(length = 1.4, width = 0.2, height = 0.2),
+            upperArm = BeamDimensions(length = 1.2, width = 0.15, height = 0.1),
+            forearm = BeamDimensions(length = 1.0, width = 0.15, height = 0.1),
             mastOffset = Point3D(0.0, 0.0, 0.2),
-            elbowHeightOffset = -0.25,
-            wristHeightOffset = -0.1,
+            elbowHeightOffset = -0.2,
+            wristHeightOffset = -0.05,
             gripperOffset = Point3D(-0.04, 0.0, -0.3),
         ),
         mast = DriveSpecification(
